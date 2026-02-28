@@ -6,12 +6,12 @@ const Footer = () => (
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center space-x-2">
           <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold">AT</span>
+            <span className="text-white font-bold">AV</span>
           </div>
-          <span className="text-lg font-semibold">Sur Travel</span>
+          <span className="text-lg font-semibold">Araucania Viajes</span>
         </div>
         <p className="text-emerald-400 text-sm text-center md:text-right">
-          © 2026 Sur Travel. Conectando la Araucanía con comodidad y seguridad.
+          © 2026 Araucania Viajes. Conectando la Araucanía con comodidad y seguridad.
         </p>
       </div>
     </div>
