@@ -37,7 +37,7 @@ const Coverage = () => (
 
           <div className="relative">
             <img
-              src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=2070&q=80"
+              src="/nieve.jpg"
               alt="Paisaje de la Araucanía"
               className="w-full h-64 object-cover rounded-xl shadow-lg"
             />
