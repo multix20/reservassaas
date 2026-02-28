@@ -4,18 +4,16 @@ import { Play, X } from 'lucide-react';
 
 const videos = [
   {
-    title: 'Recorrido por la Araucanía',
+    title: 'Viajes por Chile: Región de la Araucanía',
     description: 'Descubre los lugares más impresionantes de la región',
-    thumbnail: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=800&q=80',
-    videoUrl: '/araucania.mp4', // Reemplazar con video real
-    duration: '0:23',
+    thumbnail: 'https://img.youtube.com/vi/AlhznqqpaAk/maxresdefault.jpg',
+    youtubeId: 'AlhznqqpaAk',
   },
   {
-    title: 'Cascadas de la Araucanía',
-    description: 'Vive la magia de las cascadas en medio del bosque nativo',
-    thumbnail: 'https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?auto=format&fit=crop&w=800&q=80',
-    videoUrl: '/Cascada.mp4',
-    duration: '2:15',
+    title: '3 Lugares impresionantes de la Araucanía',
+    description: 'Vive la magia de los paisajes únicos del sur de Chile',
+    thumbnail: 'https://img.youtube.com/vi/4aV7pCbHtlw/maxresdefault.jpg',
+    youtubeId: '4aV7pCbHtlw',
   },
 ];
 
@@ -31,11 +29,11 @@ const VideoGallery = () => {
               Vive la Experiencia
             </h2>
             <p className="text-xl text-emerald-700 max-w-2xl mx-auto">
-              Mira cómo hacemos cada viaje memorable
+              Hacemos cada viaje memorable
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             {videos.map((video, index) => (
               <div
                 key={index}
@@ -43,17 +41,17 @@ const VideoGallery = () => {
                 onClick={() => setSelectedVideo(video)}
               >
                 <div className="relative rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
-                  {/* Thumbnail */}
+                  {/* Thumbnail desde YouTube */}
                   <div className="relative h-56">
                     <img
                       src={video.thumbnail}
                       alt={video.title}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     />
-                    
+
                     {/* Dark overlay */}
                     <div className="absolute inset-0 bg-black/30 group-hover:bg-black/50 transition-colors duration-300" />
-                    
+
                     {/* Play button */}
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="bg-emerald-600 group-hover:bg-emerald-500 w-16 h-16 rounded-full flex items-center justify-center transform group-hover:scale-110 transition-all duration-300 shadow-xl">
@@ -61,9 +59,9 @@ const VideoGallery = () => {
                       </div>
                     </div>
 
-                    {/* Duration badge */}
-                    <div className="absolute bottom-3 right-3 bg-black/70 text-white px-3 py-1 rounded-lg text-sm font-semibold">
-                      {video.duration}
+                    {/* YouTube badge */}
+                    <div className="absolute bottom-3 right-3 bg-red-600 text-white px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1">
+                      ▶ YouTube
                     </div>
                   </div>
 
@@ -102,10 +100,10 @@ const VideoGallery = () => {
               <X size={24} />
             </button>
 
-            {/* Video container */}
+            {/* Video YouTube embed */}
             <div className="relative bg-black rounded-2xl overflow-hidden shadow-2xl" style={{ paddingBottom: '56.25%' }}>
               <iframe
-                src={selectedVideo.videoUrl}
+                src={`https://www.youtube.com/embed/${selectedVideo.youtubeId}?autoplay=1`}
                 title={selectedVideo.title}
                 className="absolute inset-0 w-full h-full"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
