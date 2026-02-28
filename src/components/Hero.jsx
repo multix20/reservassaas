@@ -32,23 +32,30 @@ const Hero = () => {
   const [current, setCurrent] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
-  const goTo = useCallback(
-    (index) => {
-      if (isTransitioning) return;
-      setIsTransitioning(true);
-      setCurrent((index + slides.length) % slides.length);
-      setTimeout(() => setIsTransitioning(false), 700);
-    },
-    [isTransitioning],
-  );
+  const goTo = useCallback((index) => {
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+    setCurrent((index + slides.length) % slides.length);
+    setTimeout(() => setIsTransitioning(false), 700);
+  }, [isTransitioning]);
 
-  const next = () => goTo(current + 1);
-  const prev = () => goTo(current - 1);
+  const prev = useCallback(() => {
+    goTo(current - 1);
+  }, [current, goTo]);
 
+  // Auto-advance usando solo setCurrent para evitar dependencia en "current"
   useEffect(() => {
-    const timer = setInterval(next, 5000);
+    const timer = setInterval(() => {
+      setIsTransitioning(true);
+      setCurrent((prev) => (prev + 1) % slides.length);
+      setTimeout(() => setIsTransitioning(false), 700);
+    }, 5000);
     return () => clearInterval(timer);
-  }, [current]);
+  }, []);
+
+  const next = useCallback(() => {
+    goTo(current + 1);
+  }, [current, goTo]);
 
   return (
     <section id="inicio" className="relative h-screen min-h-[600px] overflow-hidden">
@@ -57,6 +64,7 @@ const Hero = () => {
       {slides.map((slide, index) => (
         <div
           key={index}
+          style={{ transition: 'opacity 0.7s ease' }}
           className={`absolute inset-0 ${index === current ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
         >
           <img
@@ -71,24 +79,23 @@ const Hero = () => {
 
       {/* Content */}
       <div className="relative z-20 flex flex-col items-center justify-center h-full text-center px-4 gap-2">
-
-        <span className="text-emerald-300 text-sm font-semibold tracking-widest uppercase mb-3 ">
+        <span className="text-emerald-300 text-sm font-semibold tracking-widest uppercase mb-3">
           Región de la Araucanía · Chile
         </span>
 
-<h1
-  key={current}
-  className="text-5xl md:text-7xl font-extrabold text-white mb-4"
->
-  {slides[current].title}
-</h1>
+        <h1
+          key={current}
+          className="text-5xl md:text-7xl font-extrabold text-white mb-4"
+        >
+          {slides[current].title}
+        </h1>
 
-<p
-  key={`sub-${current}`}
-  className="text-xl md:text-2xl text-emerald-100 mb-10 max-w-2xl drop-shadow"
->
-  {slides[current].subtitle}
-</p>
+        <p
+          key={`sub-${current}`}
+          className="text-xl md:text-2xl text-emerald-100 mb-10 max-w-2xl drop-shadow"
+        >
+          {slides[current].subtitle}
+        </p>
 
         <div className="flex flex-col sm:flex-row gap-4">
           <a
@@ -105,7 +112,6 @@ const Hero = () => {
             Ver Servicios
           </a>
         </div>
-
       </div>
 
       {/* Flecha izquierda */}
@@ -133,7 +139,7 @@ const Hero = () => {
             key={index}
             onClick={() => goTo(index)}
             aria-label={`Ir a slide ${index + 1}`}
-            className={`rounded-full ${index === current ? 'bg-emerald-400 w-8 h-3' : 'bg-white/50 w-3 h-3'}`}
+            className={`rounded-full transition-all duration-300 ${index === current ? 'bg-emerald-400 w-8 h-3' : 'bg-white/50 w-3 h-3'}`}
           />
         ))}
       </div>
