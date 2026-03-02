@@ -7,21 +7,25 @@ const slides = [
     image: '/araucaria.webp',
     title: 'Descubre la Araucanía',
     subtitle: 'Lagos, volcanes y naturaleza sin igual',
+    priority: true,
   },
   {
-    image: 'https://images.unsplash.com/photo-1679672033676-706decf553ab?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    image: '/volcan.webp',
     title: 'Volcanes y Montañas',
     subtitle: 'Vive la majestuosidad del Villarrica y el Llaima',
+    priority: false,
   },
   {
-    image: 'https://plus.unsplash.com/premium_photo-1738099067629-e0931981fe45?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    image: '/termas.webp',
     title: 'Termas y Relax',
     subtitle: 'Aguas termales, spa y bienestar en medio de la naturaleza',
+    priority: false,
   },
   {
-    image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f1/Villarrica%2C_Lago_Villarrica%2C_2019_%2802%29.jpg/960px-Villarrica%2C_Lago_Villarrica%2C_2019_%2802%29.jpg',
+    image: '/lago.webp',
     title: 'Lagos Cristalinos',
     subtitle: 'Caburgua, Villarrica y sus orillas únicas',
+    priority: false,
   },
 ];
 
@@ -43,7 +47,6 @@ const Hero = () => {
     goTo(current - 1);
   }, [current, goTo]);
 
-  // Auto-advance usando solo setCurrent para evitar dependencia en "current"
   useEffect(() => {
     const timer = setInterval(() => {
       setIsTransitioning(true);
@@ -56,27 +59,35 @@ const Hero = () => {
   const next = useCallback(() => {
     goTo(current + 1);
   }, [current, goTo]);
-  
+
   const activeSlide = slides[current];
 
   return (
     <section id="inicio" className="relative h-screen min-h-[600px] overflow-hidden">
 
-{/* Slide activo únicamente */}
-<div
-  style={{ transition: 'opacity 0.7s ease' }}
-  className="absolute inset-0 opacity-100 z-10"
->
-  <img
-    src={activeSlide.image}
-    alt={activeSlide.title}
-    className="w-full h-full object-cover"
-    fetchPriority="high"
-    width="1170"
-    height="800"
-  />
-  <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/60" />
-</div>
+      {/* Precargar imágenes siguientes en segundo plano */}
+      <div className="hidden" aria-hidden="true">
+        {slides.slice(1).map((slide, i) => (
+          <img key={i} src={slide.image} alt="" />
+        ))}
+      </div>
+
+      {/* Slide activo únicamente */}
+      <div
+        style={{ transition: 'opacity 0.7s ease' }}
+        className="absolute inset-0 opacity-100 z-10"
+      >
+        <img
+          src={activeSlide.image}
+          alt={activeSlide.title}
+          className="w-full h-full object-cover"
+          fetchPriority={activeSlide.priority ? 'high' : 'low'}
+          loading={activeSlide.priority ? 'eager' : 'lazy'}
+          width="1170"
+          height="800"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/60" />
+      </div>
 
       {/* Content */}
       <div className="relative z-20 flex flex-col items-center justify-center h-full text-center px-4 gap-2">
