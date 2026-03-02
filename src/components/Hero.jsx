@@ -56,26 +56,27 @@ const Hero = () => {
   const next = useCallback(() => {
     goTo(current + 1);
   }, [current, goTo]);
+  
+  const activeSlide = slides[current];
 
   return (
     <section id="inicio" className="relative h-screen min-h-[600px] overflow-hidden">
 
-      {/* Slides */}
-      {slides.map((slide, index) => (
-        <div
-          key={index}
-          style={{ transition: 'opacity 0.7s ease' }}
-          className={`absolute inset-0 ${index === current ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
-        >
-          <img
-            src={slide.image}
-            alt={slide.title}
-            className="w-full h-full object-cover"
-            loading={index === 0 ? 'eager' : 'lazy'}
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/60" />
-        </div>
-      ))}
+{/* Slide activo únicamente */}
+<div
+  style={{ transition: 'opacity 0.7s ease' }}
+  className="absolute inset-0 opacity-100 z-10"
+>
+  <img
+    src={activeSlide.image}
+    alt={activeSlide.title}
+    className="w-full h-full object-cover"
+    fetchPriority="high"
+    width="1170"
+    height="800"
+  />
+  <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/60" />
+</div>
 
       {/* Content */}
       <div className="relative z-20 flex flex-col items-center justify-center h-full text-center px-4 gap-2">
