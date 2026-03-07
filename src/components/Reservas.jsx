@@ -23,19 +23,7 @@ const formatFecha = (str) => { if (!str) return ""; const [y, m, d] = str.split(
 const formatPrecio = (n) => `CLP ${n.toLocaleString("es-CL")}`;
 const calcularTotal = (ruta, tipo, pasajeros) => { if (!ruta) return 0; return tipo === "van_completa" ? ruta.precio_van : ruta.precio_persona * pasajeros; };
 
-const crearOrdenFlow = async (reservaId, monto, email, nombre, rutaLabel) => {
-  const response = await fetch(
-    "https://pyloifgprupypgkhkqmx.supabase.co/functions/v1/flow-payment",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reservaId, monto, email, nombre, rutaLabel }),
-    }
-  );
-  const data = await response.json();
-  if (data.url) return data.url;
-  throw new Error(data.error || "Error al crear orden de pago");
-};
+
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export default function Reservas() {
