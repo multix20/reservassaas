@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 // ─── Configuración ────────────────────────────────────────────────────────────
 const SUPABASE_URL = "https://pyloifgprupypgkhkqmx.supabase.co";
 const SUPABASE_KEY = "sb_publishable_UN__-qAOLiEli5p9xY9ypQ_Qr9wxajL";
-const AVIATION_KEY = "11c8dee1437e5acbd5c99b4becf6e803";
 const WHATSAPP_NUMBER = "56951569704";
 const MAX_PASAJEROS_VAN = 12;
 const MIN_PASAJEROS_COMPARTIDO = 10;
@@ -13,19 +12,17 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ─── Rutas y precios ──────────────────────────────────────────────────────────
 const RUTAS = [
-  { id: "pucon-aeropuerto", label: "Pucón → Aeropuerto Temuco", desde: "Pucón", hasta: "Aeropuerto ZCO", iata: "ZCO", tipo_vuelo: "departures", precio_persona: 15000, precio_van: 120000, emoji: "🏔️", duracion: "~1h 30min" },
-  { id: "aeropuerto-pucon", label: "Aeropuerto Temuco → Pucón", desde: "Aeropuerto ZCO", hasta: "Pucón", iata: "ZCO", tipo_vuelo: "arrivals", precio_persona: 15000, precio_van: 120000, emoji: "✈️", duracion: "~1h 30min" },
-  { id: "villarrica-aeropuerto", label: "Villarrica → Aeropuerto Temuco", desde: "Villarrica", hasta: "Aeropuerto ZCO", iata: "ZCO", tipo_vuelo: "departures", precio_persona: 12000, precio_van: 100000, emoji: "🌋", duracion: "~1h 15min" },
-  { id: "aeropuerto-villarrica", label: "Aeropuerto Temuco → Villarrica", desde: "Aeropuerto ZCO", hasta: "Villarrica", iata: "ZCO", tipo_vuelo: "arrivals", precio_persona: 12000, precio_van: 100000, emoji: "🏕️", duracion: "~1h 15min" },
+  { id: "pucon-aeropuerto", label: "Pucón → Aeropuerto Temuco", precio_persona: 15000, precio_van: 120000, emoji: "🏔️", duracion: "~1h 30min" },
+  { id: "aeropuerto-pucon", label: "Aeropuerto Temuco → Pucón", precio_persona: 15000, precio_van: 120000, emoji: "✈️", duracion: "~1h 30min" },
+  { id: "villarrica-aeropuerto", label: "Villarrica → Aeropuerto Temuco", precio_persona: 12000, precio_van: 100000, emoji: "🌋", duracion: "~1h 15min" },
+  { id: "aeropuerto-villarrica", label: "Aeropuerto Temuco → Villarrica", precio_persona: 12000, precio_van: 100000, emoji: "🏕️", duracion: "~1h 15min" },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const formatHora = (iso) => { if (!iso) return "—"; return new Date(iso).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }); };
 const formatFecha = (str) => { if (!str) return ""; const [y, m, d] = str.split("-"); return new Date(y, m - 1, d).toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); };
 const formatPrecio = (n) => `CLP ${n.toLocaleString("es-CL")}`;
 const calcularTotal = (ruta, tipo, pasajeros) => { if (!ruta) return 0; return tipo === "van_completa" ? ruta.precio_van : ruta.precio_persona * pasajeros; };
 
-// ─── Flow via Edge Function (seguro) ─────────────────────────────────────────
 const crearOrdenFlow = async (reservaId, monto, email, nombre, rutaLabel) => {
   const response = await fetch(
     "https://pyloifgprupypgkhkqmx.supabase.co/functions/v1/flow-payment",
@@ -46,10 +43,6 @@ export default function Reservas() {
   const [rutaId, setRutaId] = useState(null);
   const [fecha, setFecha] = useState("");
   const [tipoReserva, setTipoReserva] = useState("compartido");
-  const [vuelos, setVuelos] = useState([]);
-  const [cargandoVuelos, setCargandoVuelos] = useState(false);
-  const [vueloSel, setVueloSel] = useState(null);
-  const [cupos, setCupos] = useState({});
   const [form, setForm] = useState({ nombre: "", email: "", emailConfirm: "", telefono: "", pasajeros: 1, direccion: "", notas: "" });
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState("");
@@ -58,30 +51,6 @@ export default function Reservas() {
   const ruta = RUTAS.find((r) => r.id === rutaId);
   const total = calcularTotal(ruta, tipoReserva, Number(form.pasajeros));
   const hoy = new Date().toISOString().split("T")[0];
-
-  useEffect(() => {
-    if (!fecha || !ruta) return;
-    setCargandoVuelos(true);
-    setVuelos([]);
-    setVueloSel(null);
-    const param = ruta.tipo_vuelo === "arrivals" ? "arr_iata" : "dep_iata";
-    fetch(`https://api.aviationstack.com/v1/flights?access_key=${AVIATION_KEY}&${param}=${ruta.iata}&flight_date=${fecha}&limit=20`)
-      .then((r) => r.json())
-      .then(async (data) => {
-        const lista = (data.data || []).filter((f) => ruta.tipo_vuelo === "arrivals" ? f.arrival?.iata === "ZCO" : f.departure?.iata === "ZCO");
-        setVuelos(lista);
-        const { data: reservas } = await supabase.from("reservas").select("vuelo_numero, pasajeros").eq("fecha", fecha).in("estado", ["pendiente", "pagado"]);
-        const mapa = {};
-        (reservas || []).forEach((r) => { mapa[r.vuelo_numero] = (mapa[r.vuelo_numero] || 0) + Number(r.pasajeros); });
-        setCupos(mapa);
-      })
-      .catch(() => setVuelos([]))
-      .finally(() => setCargandoVuelos(false));
-  }, [fecha, rutaId]);
-
-  const cuposOcupados = (num) => cupos[num] || 0;
-  const cuposLibres = (num) => Math.max(0, MIN_PASAJEROS_COMPARTIDO - cuposOcupados(num));
-  const pct = (num) => Math.min(100, Math.round((cuposOcupados(num) / MIN_PASAJEROS_COMPARTIDO) * 100));
 
   const handlePagar = async () => {
     if (!form.nombre || !form.email || !form.telefono) { setError("Completa todos los campos obligatorios."); return; }
@@ -93,18 +62,22 @@ export default function Reservas() {
       const reservaData = {
         nombre: form.nombre, email: form.email, telefono: form.telefono,
         ruta: ruta.label, fecha,
-        hora: vueloSel ? formatHora(vueloSel.departure?.scheduled || vueloSel.arrival?.scheduled) : "",
-        vuelo_numero: vueloSel?.flight?.iata || "SIN_VUELO",
-        vuelo_origen: vueloSel?.departure?.airport || ruta.desde,
-        vuelo_destino: vueloSel?.arrival?.airport || ruta.hasta,
-        vuelo_hora_llegada: vueloSel ? formatHora(vueloSel.arrival?.scheduled) : "",
-        pasajeros: Number(form.pasajeros), tipo_reserva: tipoReserva,
-        estado: "pendiente_pago", notas: form.notas || "",
+        vuelo_numero: "SIN_VUELO",
+        pasajeros: Number(form.pasajeros),
+        tipo_reserva: tipoReserva,
+        estado: "pendiente_pago",
+        notas: form.notas || "",
       };
       const { data: reservaGuardada, error: dbError } = await supabase.from("reservas").insert([reservaData]).select().single();
       if (dbError) throw new Error("Error al guardar reserva");
       const urlPago = await crearOrdenFlow(reservaGuardada.id, total, form.email, form.nombre, ruta.label);
-      const msg = encodeURIComponent(`🚐 *Nueva Reserva - Araucanía Viajes*\n\n👤 ${form.nombre}\n📱 ${form.telefono}\n📧 ${form.email}\n🗺️ ${ruta.label}\n📅 ${fecha}\n✈️ Vuelo: ${vueloSel?.flight?.iata || "Sin vuelo"}\n👥 ${form.pasajeros} pasajero(s) · ${tipoReserva === "van_completa" ? "Van completa" : "Compartido"}\n💰 Total: ${formatPrecio(total)}\n📍 ${form.direccion || "—"}`);
+      const msg = encodeURIComponent(
+        `🚐 *Nueva Reserva - Araucanía Viajes*\n\n` +
+        `👤 ${form.nombre}\n📱 ${form.telefono}\n📧 ${form.email}\n` +
+        `🗺️ ${ruta.label}\n📅 ${fecha}\n` +
+        `👥 ${form.pasajeros} pasajero(s) · ${tipoReserva === "van_completa" ? "Van completa" : "Compartido"}\n` +
+        `💰 Total: ${formatPrecio(total)}\n📍 ${form.direccion || "—"}\n📝 ${form.notas || "—"}`
+      );
       window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, "_blank");
       window.location.href = urlPago;
     } catch (err) {
@@ -117,26 +90,28 @@ export default function Reservas() {
     <section id="reservas" style={s.section}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap');
-        @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
         .rv-ruta:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(5,150,105,0.15); }
-        .rv-vuelo:hover { border-color:#059669 !important; }
         .rv-btn:hover { background:linear-gradient(135deg,#047857,#065f46) !important; transform:translateY(-1px); box-shadow:0 8px 24px rgba(5,150,105,0.35); }
         .rv-input:focus { border-color:#059669 !important; box-shadow:0 0 0 3px rgba(5,150,105,0.1); outline:none; }
       `}</style>
 
+      {/* Header */}
       <div style={s.header}>
         <div style={s.badge}>TRANSFER · ARAUCANÍA VIAJES</div>
         <h2 style={s.titulo}>Reserva tu Transfer</h2>
         <p style={s.subtitulo}>Pucón · Villarrica · Aeropuerto Temuco ZCO</p>
+
+        {/* Pasos */}
         <div style={s.stepBar}>
-          {["Ruta & Fecha", "Tu Vuelo", "Datos & Pago"].map((label, i) => (
+          {["Ruta & Fecha", "Datos & Pago"].map((label, i) => (
             <div key={i} style={{ display:"flex", alignItems:"center", gap:"0.5rem" }}>
               <div style={{ ...s.stepDot, background: paso > i+1 ? "#059669" : paso === i+1 ? "#064e3b" : "#e5e7eb", color: paso >= i+1 ? "white" : "#9ca3af", transform: paso === i+1 ? "scale(1.15)" : "scale(1)" }}>
                 {paso > i+1 ? "✓" : i+1}
               </div>
-              <span style={{ fontSize:"0.8rem", fontFamily:"'DM Sans',sans-serif", fontWeight: paso === i+1 ? "600" : "400", color: paso === i+1 ? "#064e3b" : "#9ca3af" }}>{label}</span>
-              {i < 2 && <div style={{ width:"3rem", height:"2px", background: paso > i+1 ? "#059669" : "#e5e7eb", transition:"background 0.3s" }} />}
+              <span style={{ fontSize:"0.8rem", fontWeight: paso === i+1 ? "600" : "400", color: paso === i+1 ? "#064e3b" : "#9ca3af" }}>{label}</span>
+              {i < 1 && <div style={{ width:"3rem", height:"2px", background: paso > i+1 ? "#059669" : "#e5e7eb", transition:"background 0.3s" }} />}
             </div>
           ))}
         </div>
@@ -144,7 +119,7 @@ export default function Reservas() {
 
       <div style={s.card}>
 
-        {/* PASO 1 */}
+        {/* ── PASO 1: Ruta y fecha ── */}
         {paso === 1 && (
           <div style={{ animation:"fadeUp 0.4s ease" }}>
             <h3 style={s.pasoTitulo}>¿Cuál es tu ruta?</h3>
@@ -154,7 +129,7 @@ export default function Reservas() {
                   style={{ ...s.rutaCard, ...(rutaId === r.id ? s.rutaActiva : {}) }}>
                   <span style={{ fontSize:"1.8rem" }}>{r.emoji}</span>
                   <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:"700", fontSize:"0.88rem", color:"#064e3b", fontFamily:"'DM Sans',sans-serif" }}>{r.label}</div>
+                    <div style={{ fontWeight:"700", fontSize:"0.88rem", color:"#064e3b" }}>{r.label}</div>
                     <div style={{ fontSize:"0.76rem", color:"#6b7280", marginTop:"0.15rem" }}>{r.duracion}</div>
                     <div style={{ fontSize:"0.8rem", color:"#059669", fontWeight:"600", marginTop:"0.25rem" }}>Desde {formatPrecio(r.precio_persona)}/persona</div>
                   </div>
@@ -194,90 +169,25 @@ export default function Reservas() {
 
             <button className={rutaId && fecha ? "rv-btn" : ""} disabled={!rutaId || !fecha}
               style={{ ...s.btnPrimario, marginTop:"1.5rem", opacity: rutaId && fecha ? 1 : 0.45 }}
-              onClick={() => setPaso(2)}>Continuar →</button>
-          </div>
-        )}
-
-        {/* PASO 2 */}
-        {paso === 2 && (
-          <div style={{ animation:"fadeUp 0.4s ease" }}>
-            <button style={s.btnVolver} onClick={() => setPaso(1)}>← Volver</button>
-            <h3 style={s.pasoTitulo}>Selecciona tu vuelo</h3>
-            <div style={s.chip}>
-              <span>{ruta?.emoji} {ruta?.label}</span>
-              <span>📅 {formatFecha(fecha)}</span>
-              <span>{tipoReserva === "van_completa" ? "🚐 Van completa" : "👥 Compartido"}</span>
-            </div>
-
-            {cargandoVuelos && (
-              <div style={s.cargando}><div style={s.spinner} /><span style={{ color:"#6b7280" }}>Consultando vuelos en tiempo real...</span></div>
-            )}
-
-            {!cargandoVuelos && vuelos.length === 0 && (
-              <div style={s.avisoAmarillo}>
-                <div style={{ fontWeight:"600", marginBottom:"0.3rem" }}>No encontramos vuelos para esa fecha</div>
-                <div style={{ fontSize:"0.85rem" }}>Puedes continuar sin vuelo e indicar la hora en las notas.</div>
-              </div>
-            )}
-
-            {!cargandoVuelos && vuelos.length > 0 && (
-              <div style={{ display:"flex", flexDirection:"column", gap:"0.7rem", maxHeight:"360px", overflowY:"auto" }}>
-                {vuelos.map((v, i) => {
-                  const num = v.flight?.iata || `V${i}`;
-                  const ocupados = cuposOcupados(num);
-                  const porcentaje = pct(num);
-                  const color = porcentaje >= 80 ? "#dc2626" : porcentaje >= 50 ? "#d97706" : "#059669";
-                  const sel = vueloSel?.flight?.iata === num;
-                  return (
-                    <button key={i} className="rv-vuelo" onClick={() => setVueloSel(v)}
-                      style={{ ...s.vueloCard, ...(sel ? s.vueloActivo : {}) }}>
-                      <div style={{ display:"flex", justifyContent:"space-between", gap:"1rem" }}>
-                        <div style={{ flex:1 }}>
-                          <div style={{ display:"flex", alignItems:"center", gap:"0.5rem" }}>
-                            <span style={{ fontWeight:"800", fontSize:"1.05rem", color:"#064e3b", fontFamily:"'Playfair Display',serif" }}>{num}</span>
-                            <span style={{ fontSize:"0.72rem", background:"#f0fdf4", color:"#059669", padding:"0.1rem 0.5rem", borderRadius:"99px", fontWeight:"600" }}>{v.flight_status || "programado"}</span>
-                          </div>
-                          <div style={{ fontSize:"0.8rem", color:"#374151", marginTop:"0.2rem" }}>{v.airline?.name} · {v.departure?.airport} → {v.arrival?.airport}</div>
-                          <div style={{ fontSize:"0.76rem", color:"#6b7280", marginTop:"0.15rem" }}>
-                            🛫 {formatHora(v.departure?.scheduled)} · 🛬 {formatHora(v.arrival?.scheduled)}
-                            {v.arrival?.delay ? <span style={{ color:"#dc2626", marginLeft:"0.5rem" }}>+{v.arrival.delay}min retraso</span> : null}
-                          </div>
-                        </div>
-                        {tipoReserva === "compartido" && (
-                          <div style={{ textAlign:"right", minWidth:"72px" }}>
-                            <div style={{ fontSize:"0.78rem", color, fontWeight:"700" }}>{ocupados}/{MIN_PASAJEROS_COMPARTIDO}</div>
-                            <div style={{ fontSize:"0.72rem", color:"#9ca3af" }}>{cuposLibres(num)} libres</div>
-                          </div>
-                        )}
-                      </div>
-                      {tipoReserva === "compartido" && (
-                        <div style={s.barraFondo}><div style={{ ...s.barraRelleno, width:`${porcentaje}%`, background:color }} /></div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            <button className="rv-btn" style={{ ...s.btnPrimario, marginTop:"1.5rem" }} onClick={() => setPaso(3)}>
-              {vueloSel ? `Continuar con vuelo ${vueloSel.flight?.iata} →` : "Continuar sin vuelo →"}
+              onClick={() => setPaso(2)}>
+              Continuar →
             </button>
           </div>
         )}
 
-        {/* PASO 3 */}
-        {paso === 3 && (
+        {/* ── PASO 2: Datos y pago ── */}
+        {paso === 2 && (
           <div style={{ animation:"fadeUp 0.4s ease" }}>
-            <button style={s.btnVolver} onClick={() => setPaso(2)}>← Volver</button>
+            <button style={s.btnVolver} onClick={() => setPaso(1)}>← Volver</button>
             <h3 style={s.pasoTitulo}>Datos del pasajero</h3>
 
+            {/* Resumen */}
             <div style={s.resumenBox}>
               {[
                 ["Ruta", ruta?.label],
                 ["Fecha", formatFecha(fecha)],
-                vueloSel ? ["Vuelo", `${vueloSel.flight?.iata} · llega ${formatHora(vueloSel.arrival?.scheduled)}`] : null,
-                ["Tipo", tipoReserva === "van_completa" ? "Van completa" : "Compartido"]
-              ].filter(Boolean).map(([k, v]) => (
+                ["Tipo", tipoReserva === "van_completa" ? "Van completa" : "Compartido"],
+              ].map(([k, v]) => (
                 <div key={k} style={s.resumenFila}><span>{k}</span><strong>{v}</strong></div>
               ))}
               <div style={{ ...s.resumenFila, borderTop:"1px solid #d1fae5", paddingTop:"0.75rem", marginTop:"0.25rem" }}>
@@ -291,7 +201,8 @@ export default function Reservas() {
               <div><label style={s.label}>Teléfono *</label><input className="rv-input" style={s.input} placeholder="+56 9 1234 5678" value={form.telefono} onChange={(e) => setForm({...form, telefono:e.target.value})} /></div>
             </div>
             <div style={{ marginTop:"1rem" }}><label style={s.label}>Email *</label><input className="rv-input" style={s.input} type="email" placeholder="juan@email.com" value={form.email} onChange={(e) => setForm({...form, email:e.target.value})} /></div>
-            <div style={{ marginTop:"1rem" }}><label style={s.label}>Confirmar email *</label>
+            <div style={{ marginTop:"1rem" }}>
+              <label style={s.label}>Confirmar email *</label>
               <input className="rv-input" style={{ ...s.input, borderColor: form.emailConfirm && form.email !== form.emailConfirm ? "#dc2626" : "" }}
                 type="email" placeholder="Repite tu email" value={form.emailConfirm} onChange={(e) => setForm({...form, emailConfirm:e.target.value})} />
             </div>
@@ -357,14 +268,6 @@ const s = {
   input: { width:"100%", padding:"0.75rem 1rem", border:"1.5px solid #e5e7eb", borderRadius:"0.75rem", fontSize:"0.93rem", color:"#111827", background:"#fafafa", boxSizing:"border-box", transition:"all 0.2s", fontFamily:"'DM Sans',sans-serif" },
   btnPrimario: { width:"100%", padding:"1rem", background:"linear-gradient(135deg,#059669,#047857)", color:"white", border:"none", borderRadius:"0.875rem", fontSize:"1rem", fontWeight:"700", cursor:"pointer", transition:"all 0.2s" },
   btnVolver: { background:"none", border:"none", color:"#9ca3af", cursor:"pointer", fontSize:"0.88rem", marginBottom:"1rem", padding:0 },
-  vueloCard: { padding:"1rem", border:"2px solid #e5e7eb", borderRadius:"1rem", cursor:"pointer", background:"white", textAlign:"left", transition:"all 0.2s", width:"100%" },
-  vueloActivo: { border:"2px solid #059669", background:"#f0fdf4" },
-  barraFondo: { height:"5px", background:"#e5e7eb", borderRadius:"99px", marginTop:"0.75rem", overflow:"hidden" },
-  barraRelleno: { height:"100%", borderRadius:"99px", transition:"width 0.5s ease" },
-  cargando: { display:"flex", alignItems:"center", gap:"0.75rem", padding:"2rem", justifyContent:"center" },
-  spinner: { width:"1.5rem", height:"1.5rem", border:"3px solid #d1fae5", borderTop:"3px solid #059669", borderRadius:"50%", animation:"spin 0.8s linear infinite" },
-  avisoAmarillo: { padding:"1.25rem", background:"#fef9c3", borderRadius:"0.875rem", color:"#713f12", fontSize:"0.88rem" },
-  chip: { display:"flex", gap:"0.75rem", flexWrap:"wrap", padding:"0.65rem 1rem", background:"#f0fdf4", borderRadius:"0.75rem", marginBottom:"1.25rem", fontSize:"0.82rem", color:"#065f46", fontWeight:"500" },
   resumenBox: { background:"#f0fdf4", borderRadius:"1rem", padding:"1.1rem 1.25rem", marginBottom:"1.25rem", border:"1px solid #d1fae5" },
   resumenFila: { display:"flex", justifyContent:"space-between", alignItems:"center", padding:"0.35rem 0", fontSize:"0.88rem", color:"#374151" },
   metodoPago: { display:"flex", alignItems:"center", gap:"0.6rem", flexWrap:"wrap", padding:"0.75rem 0", marginTop:"1rem", borderTop:"1px solid #f3f4f6" },
