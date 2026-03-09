@@ -5,7 +5,7 @@ import supabase from '../lib/supabase';
 export default function Header() {
   const [drawerOpen, setDrawerOpen]   = useState(false);
   const [scrolled,   setScrolled]     = useState(false);
-  const [modal,      setModal]        = useState(null); // 'login' | 'register' | null
+  const [modal,      setModal]        = useState(null);
   const [user,       setUser]         = useState(null);
   const [userMenu,   setUserMenu]     = useState(false);
 
@@ -77,7 +77,7 @@ export default function Header() {
 
           <div className="hdr__actions">
             {user ? (
-              <div style={{ position:'relative' }}>
+              <div style={{ position: 'relative' }}>
                 <button className="hdr__user-pill" onClick={() => setUserMenu(v => !v)}>
                   <span>{displayName}</span>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
@@ -90,6 +90,9 @@ export default function Header() {
                     <div className="user-menu-overlay" onClick={() => setUserMenu(false)}/>
                     <div className="user-menu">
                       <div className="user-menu__email">{user.email}</div>
+                      {user.user_metadata?.phone && (
+                        <div className="user-menu__phone">{user.user_metadata.phone}</div>
+                      )}
                       <button className="user-menu__item" onClick={handleSignOut}>
                         <LogOut size={14}/> Cerrar sesión
                       </button>
@@ -115,7 +118,7 @@ export default function Header() {
       <aside className={`drawer ${drawerOpen ? 'open' : ''}`}>
         <div className="drawer__header">
           <div className="drawer__logo">
-            <span className="hdr__logo-mark" style={{width:30,height:30,fontSize:11}}>LL</span>
+            <span className="hdr__logo-mark" style={{ width: 30, height: 30, fontSize: 11 }}>LL</span>
             <span className="drawer__logo-name">LLEVU</span>
           </div>
           <button className="drawer__close" onClick={() => setDrawerOpen(false)}><X size={18}/></button>
@@ -127,6 +130,9 @@ export default function Header() {
             <div>
               <div className="drawer__user-name">{displayName}</div>
               <div className="drawer__user-email">{user.email}</div>
+              {user.user_metadata?.phone && (
+                <div className="drawer__user-phone">{user.user_metadata.phone}</div>
+              )}
             </div>
           </div>
         )}
@@ -134,7 +140,7 @@ export default function Header() {
         <nav className="drawer__nav">
           {drawerItems.map(({ href, label, desc }, i) => (
             <a key={href} href={href} className="drawer__item"
-              style={{ animationDelay:`${i * 0.06 + 0.04}s` }}
+              style={{ animationDelay: `${i * 0.06 + 0.04}s` }}
               onClick={() => setDrawerOpen(false)}>
               <div>
                 <div className="drawer__item-label">{label}</div>
@@ -156,7 +162,7 @@ export default function Header() {
               </button>
             </div>
           ) : (
-            <button className="drawer__btn-ghost" style={{width:'100%'}} onClick={handleSignOut}>
+            <button className="drawer__btn-ghost" style={{ width: '100%' }} onClick={handleSignOut}>
               <LogOut size={15}/> Cerrar sesión
             </button>
           )}
@@ -184,6 +190,7 @@ function AuthModal({ mode, onClose, onSwitch, onSuccess }) {
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
   const [name,     setName]     = useState('');
+  const [phone,    setPhone]    = useState('');   // ← NUEVO
   const [showPwd,  setShowPwd]  = useState(false);
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState('');
@@ -201,10 +208,18 @@ function AuthModal({ mode, onClose, onSwitch, onSuccess }) {
         if (error) throw error;
         onSuccess();
       } else {
-        if (!name) { setError('Ingresa tu nombre.'); setLoading(false); return; }
+        if (!name)  { setError('Ingresa tu nombre.');    setLoading(false); return; }
+        if (!phone) { setError('Ingresa tu teléfono.');  setLoading(false); return; }
+
         const { error } = await supabase.auth.signUp({
-          email, password,
-          options: { data: { full_name: name } }
+          email,
+          password,
+          options: {
+            data: {
+              full_name: name,
+              phone:     phone,   // ← se guarda en user_metadata
+            },
+          },
         });
         if (error) throw error;
         setSuccess('¡Cuenta creada! Revisa tu email para confirmar.');
@@ -225,9 +240,9 @@ function AuthModal({ mode, onClose, onSwitch, onSuccess }) {
       <div className="modal-card" role="dialog" aria-modal="true">
         <button className="modal-close" onClick={onClose} aria-label="Cerrar"><X size={18}/></button>
 
-        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:'1.5rem'}}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '1.5rem' }}>
           <span className="hdr__logo-mark">LL</span>
-          <span className="hdr__logo-name" style={{color:'#000'}}>LLEVU</span>
+          <span className="hdr__logo-name" style={{ color: '#000' }}>LLEVU</span>
         </div>
 
         <h2 className="modal-title">{isLogin ? 'Bienvenido de vuelta' : 'Crea tu cuenta'}</h2>
@@ -237,18 +252,45 @@ function AuthModal({ mode, onClose, onSwitch, onSuccess }) {
 
         <div className="modal-fields">
           {!isLogin && (
-            <div className="modal-field">
-              <label className="modal-label">Nombre completo</label>
-              <input className="modal-input" type="text" placeholder="Juan Pablo"
-                value={name} onChange={e => setName(e.target.value)} disabled={loading}/>
-            </div>
+            <>
+              {/* Nombre */}
+              <div className="modal-field">
+                <label className="modal-label">Nombre completo</label>
+                <input className="modal-input" type="text" placeholder="Juan Pablo Pérez"
+                  value={name} onChange={e => setName(e.target.value)} disabled={loading}/>
+              </div>
+
+              {/* Teléfono ← NUEVO */}
+              <div className="modal-field">
+                <label className="modal-label">Teléfono</label>
+                <div className="modal-phone-wrap">
+                  <span className="modal-phone-prefix">+56</span>
+                  <input
+                    className="modal-input modal-input--phone"
+                    type="tel"
+                    placeholder="9 1234 5678"
+                    value={phone}
+                    onChange={e => {
+                      // Solo números y espacios
+                      const val = e.target.value.replace(/[^\d\s]/g, '');
+                      setPhone(val);
+                    }}
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+            </>
           )}
+
+          {/* Email */}
           <div className="modal-field">
             <label className="modal-label">Email</label>
             <input className="modal-input" type="email" placeholder="tu@email.com"
               value={email} onChange={e => setEmail(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSubmit()} disabled={loading}/>
           </div>
+
+          {/* Contraseña */}
           <div className="modal-field">
             <label className="modal-label">Contraseña</label>
             <div className="modal-pwd-wrap">
@@ -274,7 +316,8 @@ function AuthModal({ mode, onClose, onSwitch, onSuccess }) {
 
         <p className="modal-switch">
           {isLogin ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?'}{' '}
-          <button className="modal-switch-btn" onClick={() => { reset(); onSwitch(isLogin ? 'register' : 'login'); }}>
+          <button className="modal-switch-btn"
+            onClick={() => { reset(); onSwitch(isLogin ? 'register' : 'login'); }}>
             {isLogin ? 'Regístrate' : 'Inicia sesión'}
           </button>
         </p>
@@ -322,7 +365,8 @@ const CSS = `
   .user-menu-overlay{position:fixed;inset:0;z-index:299}
   .user-menu{position:absolute;top:calc(100% + 8px);right:0;background:#111;border:1px solid #222;border-radius:12px;padding:8px;min-width:200px;z-index:300;box-shadow:0 8px 30px rgba(0,0,0,.5);animation:fadeDown .18s ease both}
   @keyframes fadeDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
-  .user-menu__email{padding:8px 10px 10px;font-size:12px;color:#555;border-bottom:1px solid #1e1e1e;margin-bottom:4px}
+  .user-menu__email{padding:6px 10px 4px;font-size:12px;color:#555}
+  .user-menu__phone{padding:0 10px 10px;font-size:12px;color:#444;border-bottom:1px solid #1e1e1e;margin-bottom:4px}
   .user-menu__item{display:flex;align-items:center;gap:8px;width:100%;padding:10px;border-radius:8px;border:none;background:transparent;color:#ccc;font-size:14px;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all .15s}
   .user-menu__item:hover{background:#1a1a1a;color:#fff}
 
@@ -344,7 +388,8 @@ const CSS = `
   .drawer__user{display:flex;align-items:center;gap:12px;padding:1rem 1.25rem;border-bottom:1px solid #141414;background:#0a0a0a}
   .drawer__user-avatar{width:40px;height:40px;border-radius:50%;background:#fff;color:#000;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:16px;flex-shrink:0}
   .drawer__user-name{font-size:15px;font-weight:600;color:#fff}
-  .drawer__user-email{font-size:12px;color:#555;margin-top:2px}
+  .drawer__user-email{font-size:12px;color:#555;margin-top:1px}
+  .drawer__user-phone{font-size:12px;color:#444;margin-top:1px}
 
   .drawer__nav{flex:1;padding:.75rem;display:flex;flex-direction:column;overflow-y:auto}
   .drawer__item{display:flex;align-items:center;justify-content:space-between;padding:.85rem;border-radius:12px;text-decoration:none;opacity:0;animation:drawerSlide .35s ease both;transition:background .18s}
@@ -366,7 +411,7 @@ const CSS = `
   /* Modal */
   .modal-overlay{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);animation:fadeIn .2s ease both}
   @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-  .modal-card{position:fixed;top:50%;left:50%;z-index:501;transform:translate(-50%,-50%);background:#fff;border-radius:20px;padding:2rem 1.75rem;width:min(420px,92vw);box-shadow:0 24px 80px rgba(0,0,0,.4);animation:modalUp .28s cubic-bezier(.22,.68,0,1.2) both;font-family:'DM Sans',sans-serif}
+  .modal-card{position:fixed;top:50%;left:50%;z-index:501;transform:translate(-50%,-50%);background:#fff;border-radius:20px;padding:2rem 1.75rem;width:min(420px,92vw);box-shadow:0 24px 80px rgba(0,0,0,.4);animation:modalUp .28s cubic-bezier(.22,.68,0,1.2) both;font-family:'DM Sans',sans-serif;max-height:90vh;overflow-y:auto}
   @keyframes modalUp{from{opacity:0;transform:translate(-50%,-48%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
   .modal-close{position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:8px;border:1px solid #e5e5e5;background:transparent;color:#999;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .18s}
   .modal-close:hover{background:#f5f5f5;color:#000}
@@ -379,6 +424,14 @@ const CSS = `
   .modal-input:focus{border-color:#000;background:#fff}
   .modal-input::placeholder{color:#bbb}
   .modal-input:disabled{opacity:.5}
+
+  /* Teléfono con prefijo */
+  .modal-phone-wrap{display:flex;align-items:center;border:1.5px solid #e5e5e5;border-radius:10px;background:#fafafa;overflow:hidden;transition:border-color .2s}
+  .modal-phone-wrap:focus-within{border-color:#000;background:#fff}
+  .modal-phone-prefix{padding:12px 10px 12px 14px;font-size:.93rem;font-weight:600;color:#555;border-right:1.5px solid #e5e5e5;white-space:nowrap;flex-shrink:0}
+  .modal-input--phone{border:none !important;border-radius:0 !important;background:transparent !important;padding-left:10px}
+  .modal-input--phone:focus{border:none;outline:none}
+
   .modal-pwd-wrap{position:relative}
   .modal-input--pwd{padding-right:44px}
   .modal-pwd-eye{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:#aaa;cursor:pointer;padding:4px;display:flex;align-items:center}
