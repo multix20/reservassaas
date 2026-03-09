@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronRight, MapPin, LogIn, UserPlus, X, Eye, EyeOff, LogOut } from 'lucide-react';
 import supabase from '../lib/supabase';
+import MisReservas from './MisReservas';
 
 export default function Header() {
   const [drawerOpen, setDrawerOpen]   = useState(false);
@@ -8,6 +9,7 @@ export default function Header() {
   const [modal,      setModal]        = useState(null);
   const [user,       setUser]         = useState(null);
   const [userMenu,   setUserMenu]     = useState(false);
+  const [misReservas, setMisReservas]  = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -16,7 +18,14 @@ export default function Header() {
     const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user ?? null);
     });
-    return () => listener.subscription.unsubscribe();
+    // Escuchar evento desde Reservas.jsx (botón "Ver mis reservas")
+    const handleOpenMR = () => setMisReservas(true);
+    document.addEventListener('openMisReservas', handleOpenMR);
+
+    return () => {
+      listener.subscription.unsubscribe();
+      document.removeEventListener('openMisReservas', handleOpenMR);
+    };
   }, []);
 
   useEffect(() => {
@@ -30,7 +39,8 @@ export default function Header() {
     return () => { document.body.style.overflow = ''; };
   }, [drawerOpen, modal]);
 
-  const openModal  = (type) => { setModal(type); setDrawerOpen(false); setUserMenu(false); };
+  const openModal       = (type) => { setModal(type); setDrawerOpen(false); setUserMenu(false); };
+  const openMisReservas = ()     => { setMisReservas(true); setUserMenu(false); setDrawerOpen(false); };
   const closeModal = () => setModal(null);
 
   const displayName = user
@@ -93,6 +103,9 @@ export default function Header() {
                       {user.user_metadata?.phone && (
                         <div className="user-menu__phone">{user.user_metadata.phone}</div>
                       )}
+                      <button className="user-menu__item" onClick={openMisReservas}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg> Mis reservas
+                      </button>
                       <button className="user-menu__item" onClick={handleSignOut}>
                         <LogOut size={14}/> Cerrar sesión
                       </button>
@@ -162,15 +175,22 @@ export default function Header() {
               </button>
             </div>
           ) : (
-            <button className="drawer__btn-ghost" style={{ width: '100%' }} onClick={handleSignOut}>
-              <LogOut size={15}/> Cerrar sesión
-            </button>
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              <button className="drawer__btn-ghost" style={{ width: '100%' }} onClick={handleSignOut}>
+                <LogOut size={15}/> Cerrar sesión
+              </button>
+              <button className="drawer__btn-ghost" style={{ width:'100%' }} onClick={openMisReservas}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg> Mis reservas
+              </button>
+            </div>
           )}
           <div className="drawer__location">
             <MapPin size={11}/><span>Región de La Araucanía, Chile</span>
           </div>
         </div>
       </aside>
+
+      {misReservas && <MisReservas onClose={() => setMisReservas(false)}/>}
 
       {modal && (
         <AuthModal

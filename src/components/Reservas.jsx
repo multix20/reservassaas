@@ -242,6 +242,10 @@ export default function Reservas() {
         <button className="btn-ghost" onClick={reset} style={{ marginTop: 10 }}>
           Nueva reserva
         </button>
+        <button className="btn-mis-reservas" onClick={() => document.dispatchEvent(new CustomEvent("openMisReservas"))}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+          Ver mis reservas
+        </button>
       </div>
     </div>
   );
@@ -376,7 +380,7 @@ export default function Reservas() {
           <span style={{ fontSize: "0.85rem", color: "#9a9080" }}>
             {tipoViaje === "compartido" ? "Total (se cobra al confirmar)" : "A pagar ahora"}
           </span>
-          <span style={{ fontSize: "1.6rem", fontWeight: 800, color: "#1a1611" }}>{precio(aPagar)}</span>
+          <span style={{ fontSize: "clamp(1.3rem, 5vw, 1.6rem)", fontWeight: 800, color: "#1a1611" }}>{precio(aPagar)}</span>
         </div>
 
         {error && <div style={S.errBox}>⚠️ {error}</div>}
@@ -647,6 +651,22 @@ const css = `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600;700;800&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
+  /* ── Responsive base — evita zoom automático en Xiaomi/MIUI ── */
+  input, select, textarea { font-size: 16px !important; } /* evita zoom en iOS/Android al enfocar */
+  
+  @media (max-width: 380px) {
+    .btn-confirmar { font-size: 0.85rem !important; padding: 13px !important; }
+    .btn-flow      { font-size: 0.85rem !important; padding: 13px !important; }
+    .tarifa-card   { padding: 0.85rem 0.9rem !important; gap: 10px !important; }
+    .ruta-row      { padding: 11px 4px !important; }
+    .pago-opt      { padding: 0.75rem 0.8rem !important; }
+  }
+
+  @media (max-width: 320px) {
+    .btn-confirmar { font-size: 0.8rem !important; padding: 12px !important; }
+    .tarifa-card   { gap: 8px !important; }
+  }
+
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(12px); }
     to   { opacity: 1; transform: translateY(0); }
@@ -665,10 +685,10 @@ const css = `
   .btn-back:hover { background: #D4CBB8; }
 
   .btn-confirmar {
-    width: 100%; padding: 17px;
+    width: 100%; padding: clamp(14px, 4vw, 17px);
     background: #1a1611; color: #F5EDD8;
     border: none; border-radius: 14px;
-    font-size: 1rem; font-weight: 800;
+    font-size: clamp(0.9rem, 4vw, 1rem); font-weight: 800;
     font-family: 'DM Sans', sans-serif;
     cursor: pointer; transition: all .2s;
     box-shadow: 0 4px 20px rgba(26,22,17,.2);
@@ -772,6 +792,16 @@ const css = `
   .btn-flow:active:not(:disabled) { transform: translateY(0); }
   .btn-flow:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
 
+  .btn-mis-reservas {
+    width: 100%; padding: 13px; margin-top: 8px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: transparent; color: #1a1611;
+    border: 1.5px solid #1a1611; border-radius: 14px;
+    font-size: 0.88rem; font-weight: 700;
+    font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all .2s;
+  }
+  .btn-mis-reservas:hover { background: #1a1611; color: #fff; }
+
   .btn-spinner {
     width: 17px; height: 17px; border-radius: 50%;
     border: 2px solid rgba(255,255,255,.35);
@@ -783,13 +813,13 @@ const css = `
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const S = {
-  root:       { background: "#F5EDD8", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif" },
-  wrap:       { maxWidth: 420, margin: "0 auto", padding: "0 20px 80px" },
+  root:       { background: "#ffffff", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif" },
+  wrap:       { maxWidth: 480, width: "100%", margin: "0 auto", padding: "0 clamp(14px, 4vw, 24px) 80px", boxSizing: "border-box" },
 
   // Inicio
-  saludoRow:  { display: "flex", justifyContent: "space-between", alignItems: "flex-start", paddingTop: "2.5rem", paddingBottom: "1.5rem" },
+  saludoRow:  { display: "flex", justifyContent: "space-between", alignItems: "flex-start", paddingTop: "clamp(1.25rem, 5vw, 2.5rem)", paddingBottom: "1.25rem" },
   saludoSub:  { fontSize: "0.85rem", color: "#9a9080", marginBottom: 4, fontWeight: 500 },
-  saludoTitle:{ fontFamily: "'Syne', sans-serif", fontSize: "clamp(1.9rem,7vw,2.6rem)", fontWeight: 800, color: "#1a1611", lineHeight: 1.1 },
+  saludoTitle:{ fontFamily: "'Syne', sans-serif", fontSize: "clamp(1.5rem,6vw,2.2rem)", fontWeight: 800, color: "#1a1611", lineHeight: 1.12 },
 
   searchBox:  { background: "#EDE5D0", border: "1px solid #D4CBB8", borderRadius: 18, overflow: "hidden", boxShadow: "0 2px 16px rgba(26,22,17,.07)" },
   searchRow:  { display: "flex", alignItems: "center", gap: 14, padding: "16px 18px" },
@@ -805,7 +835,7 @@ const S = {
 
   // Tarifas / Confirmar — header
   topBar:     { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1.5rem 0 1rem" },
-  topTitle:   { fontFamily: "'Syne', sans-serif", fontSize: "1.05rem", fontWeight: 800, color: "#1a1611" },
+  topTitle:   { fontFamily: "'Syne', sans-serif", fontSize: "clamp(0.9rem, 4vw, 1.05rem)", fontWeight: 800, color: "#1a1611" },
 
   rutaPill:   { background: "#EDE5D0", border: "1px solid #D4CBB8", borderRadius: 16, padding: "14px 16px", display: "flex", alignItems: "center", gap: 14, marginBottom: 16, boxShadow: "0 2px 12px rgba(26,22,17,.06)" },
   rutaDot:    { display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0 },
@@ -828,9 +858,9 @@ const S = {
   errBox:     { padding: "0.8rem 1rem", background: "rgba(192,41,14,0.08)", border: "1px solid rgba(192,41,14,0.2)", borderRadius: 10, color: "#c0290e", fontSize: "0.82rem", marginBottom: "0.75rem" },
 
   // OK
-  okWrap:     { maxWidth: 420, margin: "0 auto", padding: "4rem 24px 80px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" },
+  okWrap:     { maxWidth: 480, width: "100%", margin: "0 auto", padding: "clamp(2rem,8vw,4rem) clamp(14px,4vw,24px) 80px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", boxSizing: "border-box" },
   okCircle:   { width: 72, height: 72, borderRadius: "50%", background: "#1a1611", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20 },
-  okTitle:    { fontFamily: "'Syne', sans-serif", fontSize: "1.8rem", fontWeight: 800, color: "#1a1611", marginBottom: 8 },
+  okTitle:    { fontFamily: "'Syne', sans-serif", fontSize: "clamp(1.4rem, 5vw, 1.8rem)", fontWeight: 800, color: "#1a1611", marginBottom: 8 },
   okSub:      { fontSize: "0.85rem", color: "#9a9080", lineHeight: 1.6, maxWidth: 300, marginBottom: 24 },
   okCard:     { background: "#EDE5D0", border: "1px solid #D4CBB8", borderRadius: 16, padding: "0.5rem 1.25rem", width: "100%", marginBottom: 24 },
   spinnerWrap:{ display: "flex", justifyContent: "center", marginBottom: 8 },
