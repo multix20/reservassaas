@@ -304,7 +304,7 @@ export default function Reservas() {
 
               {/* Título grande — con espacio del header */}
               <h2 style={S.uberTitle}>
-                Viaja a cualquier<br/>lugar con Araucanía<br/>Viajes
+                Muevete<br/>con Araucanía<br/>Viajes
               </h2>
 
               {/* ── Barra búsqueda principal ── */}
@@ -342,10 +342,19 @@ export default function Reservas() {
                   </div>
                   <div style={{ height:1, background:C.border }}/>
                   <div style={S.uberExtraRow}>
-                    <IconHome/>
-                    <input className="inp" style={{ ...S.inp, flex:1, color:C.ink }}
-                      placeholder="Dirección exacta de recogida"
-                      value={direccion} onChange={e=>setDireccion(e.target.value)}/>
+                    {/* Icono precio */}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.mid} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
+                      <line x1="12" y1="1" x2="12" y2="23"/>
+                      <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+                    </svg>
+                    <span style={{ flex:1, color:C.mid, fontSize:"0.88rem" }}>
+                      {tipoViaje === "compartido" ? "Precio por persona" : "Van completa"}
+                    </span>
+                    <span style={{ color:C.ink, fontWeight:800, fontSize:"1.05rem", letterSpacing:"-0.02em" }}>
+                      {rutaData
+                        ? precio(tipoViaje === "compartido" ? rutaData.persona * pasajeros : rutaData.van)
+                        : "—"}
+                    </span>
                   </div>
                 </div>
               )}
