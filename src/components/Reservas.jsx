@@ -6,46 +6,28 @@ const MAX_ASIENTOS    = 12;
 
 // ── Hook: sesión y perfil real desde Supabase Auth ────────────────────────────
 function useUsuario() {
-  const [usuario,  setUsuario]  = useState(null);   // { nombre, email, telefono, avatar }
+  const [usuario,  setUsuario]  = useState(null);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
-    // 1. Obtener sesión activa
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) cargarPerfil(session.user);
       else setCargando(false);
     });
-
-    // 2. Escuchar cambios de sesión (login / logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) cargarPerfil(session.user);
       else { setUsuario(null); setCargando(false); }
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
   const cargarPerfil = (authUser) => {
     const emailAuth = authUser.email || "";
     const meta      = authUser.user_metadata || {};
-
-    // full_name y phone vienen de Header.jsx → signUp options.data
     let nombre   = meta.full_name || meta.name || emailAuth.split("@")[0];
     let telefono = meta.phone || "";
-
-    // Agregar prefijo +56 si falta
-    if (telefono && !telefono.startsWith("+")) {
-      telefono = "+56 " + telefono.trim();
-    }
-
-    const iniciales = nombre
-      .split(" ")
-      .filter(Boolean)
-      .map(p => p[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-
+    if (telefono && !telefono.startsWith("+")) telefono = "+56 " + telefono.trim();
+    const iniciales = nombre.split(" ").filter(Boolean).map(p => p[0]).join("").toUpperCase().slice(0,2);
     setUsuario({ nombre, email: emailAuth, telefono, avatar: iniciales });
     setCargando(false);
   };
@@ -54,9 +36,9 @@ function useUsuario() {
 }
 
 const ORIGENES = [
-  { id: "pucon",      label: "Pucón",                  emoji: "🏔️", sub: "Centro ciudad" },
-  { id: "villarrica", label: "Villarrica",              emoji: "🌋", sub: "Centro ciudad" },
-  { id: "aeropuerto", label: "Aeropuerto Temuco ZCO",  emoji: "✈️", sub: "Terminal principal" },
+  { id: "pucon",      label: "Pucón",                 emoji: "🏔️", sub: "Centro ciudad" },
+  { id: "villarrica", label: "Villarrica",             emoji: "🌋", sub: "Centro ciudad" },
+  { id: "aeropuerto", label: "Aeropuerto Temuco ZCO", emoji: "✈️", sub: "Terminal principal" },
 ];
 
 const DESTINOS_POR_ORIGEN = {
@@ -69,10 +51,17 @@ const DESTINOS_POR_ORIGEN = {
 };
 
 const PRECIOS = {
-  "pucon-aeropuerto":      { persona: 15000, van: 120000, km: "95 km", duracion: "1h 30min" },
-  "villarrica-aeropuerto": { persona: 12000, van: 100000, km: "80 km", duracion: "1h 15min" },
-  "aeropuerto-pucon":      { persona: 15000, van: 120000, km: "95 km", duracion: "1h 30min" },
-  "aeropuerto-villarrica": { persona: 12000, van: 100000, km: "80 km", duracion: "1h 15min" },
+  "pucon-aeropuerto":      { persona: 15000, van: 120000, km: "95 km",  duracion: "1h 30min" },
+  "villarrica-aeropuerto": { persona: 12000, van: 100000, km: "80 km",  duracion: "1h 15min" },
+  "aeropuerto-pucon":      { persona: 15000, van: 120000, km: "95 km",  duracion: "1h 30min" },
+  "aeropuerto-villarrica": { persona: 12000, van: 100000, km: "80 km",  duracion: "1h 15min" },
+};
+
+const RUTA_NOMBRE = {
+  "pucon-aeropuerto":      "Pucón → Aeropuerto Temuco ZCO",
+  "villarrica-aeropuerto": "Villarrica → Aeropuerto Temuco ZCO",
+  "aeropuerto-pucon":      "Aeropuerto Temuco ZCO → Pucón",
+  "aeropuerto-villarrica": "Aeropuerto Temuco ZCO → Villarrica",
 };
 
 const fmt    = (str) => { if (!str) return ""; const [y,m,d]=str.split("-"); return new Date(y,m-1,d).toLocaleDateString("es-CL",{weekday:"long",day:"numeric",month:"long"}); };
@@ -80,27 +69,27 @@ const precio = (n)   => `$${Math.round(n).toLocaleString("es-CL")}`;
 const hoy    = new Date().toISOString().split("T")[0];
 
 // ── Iconos SVG ────────────────────────────────────────────────────────────────
-const IcoVan = ({ size = 28, c = "#1a1611" }) => (
+const IcoVan = ({ size=28, c="#1a1611" }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M5 17H3a2 2 0 01-2-2V7a2 2 0 012-2h11l5 7v5h-2"/>
     <circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/>
     <path d="M9 5v7h11"/>
   </svg>
 );
-const IcoBus = ({ size = 28, c = "#1a1611" }) => (
+const IcoBus = ({ size=28, c="#1a1611" }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <rect x="2" y="5" width="20" height="13" rx="2"/>
     <path d="M2 10h20 M7 18v2 M17 18v2"/>
     <circle cx="7" cy="14" r="1" fill={c}/><circle cx="17" cy="14" r="1" fill={c}/>
   </svg>
 );
-const IcoChevron = ({ dir = "right", c = "#9a9080", size = 16 }) => (
+const IcoChevron = ({ dir="right", c="#9a9080", size=16 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-    style={{ transform: dir === "left" ? "rotate(180deg)" : dir === "down" ? "rotate(90deg)" : "none" }}>
+    style={{ transform: dir==="left"?"rotate(180deg)":dir==="down"?"rotate(90deg)":"none" }}>
     <polyline points="9 18 15 12 9 6"/>
   </svg>
 );
-const IcoCheck = ({ size = 18 }) => (
+const IcoCheck = ({ size=18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="20 6 9 17 4 12"/>
   </svg>
@@ -117,73 +106,276 @@ const IcoLock = () => (
   </svg>
 );
 
+// Icono torso/persona
+const IcoPax = ({ size=16, c="#9a9080" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="7" r="4"/>
+    <path d="M4 21c0-4 3.582-7 8-7s8 3 8 7"/>
+  </svg>
+);
+
+// Icono calendario
+const IcoCal = ({ size=15, c="#9a9080" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2"/>
+    <path d="M16 2v4 M8 2v4 M3 10h18"/>
+  </svg>
+);
+
+// ── Helpers Supabase ──────────────────────────────────────────────────────────
+async function obtenerOCrearViaje({ rutaKey, origenId, destinoId, fecha, tipo, precio_por_pax }) {
+  const rutaNombre = RUTA_NOMBRE[rutaKey];
+
+  const { data: rutaData } = await supabase
+    .from("rutas")
+    .select("id")
+    .ilike("nombre", `%${rutaNombre}%`)
+    .maybeSingle();
+
+  let rutaId = rutaData?.id;
+  if (!rutaId) {
+    const origen  = ORIGENES.find(o => o.id === origenId);
+    const destino = DESTINOS_POR_ORIGEN[origenId]?.find(d => d.id === destinoId);
+    const { data: nuevaRuta } = await supabase
+      .from("rutas")
+      .insert({ nombre: rutaNombre, origen: origen?.label || "", destino: destino?.label || "", activa: true })
+      .select("id").single();
+    rutaId = nuevaRuta?.id;
+  }
+
+  if (!rutaId) throw new Error("No se pudo obtener la ruta");
+
+  const { data: viajeExistente } = await supabase
+    .from("viajes")
+    .select("id, capacidad, estado")
+    .eq("ruta_id", rutaId)
+    .eq("fecha", fecha)
+    .eq("tipo", tipo)
+    .not("estado", "eq", "cancelado")
+    .maybeSingle();
+
+  if (viajeExistente) return viajeExistente.id;
+
+  const { data: nuevoViaje, error } = await supabase
+    .from("viajes")
+    .insert({
+      ruta_id:        rutaId,
+      tipo:           tipo,
+      fecha:          fecha,
+      hora_salida:    "08:00",
+      capacidad:      tipo === "compartido" ? MAX_ASIENTOS : 8,
+      precio_por_pax: precio_por_pax,
+      estado:         "en_espera",
+    })
+    .select("id").single();
+
+  if (error) throw new Error("No se pudo crear el viaje");
+  return nuevoViaje.id;
+}
+
+async function contarAsientosOcupados(rutaKey, fecha) {
+  const rutaNombre = RUTA_NOMBRE[rutaKey];
+  if (!rutaNombre) return 0;
+
+  const { data: viaje } = await supabase
+    .from("viajes")
+    .select("id")
+    .eq("fecha", fecha)
+    .eq("tipo", "compartido")
+    .not("estado", "eq", "cancelado")
+    .maybeSingle();
+
+  if (!viaje) return 0;
+
+  const { data: reservas } = await supabase
+    .from("reservas")
+    .select("num_asientos")
+    .eq("viaje_id", viaje.id)
+    .neq("estado", "cancelada");
+
+  return reservas ? reservas.reduce((acc, r) => acc + (r.num_asientos || 1), 0) : 0;
+}
+
+// ── Tarifa por km ─────────────────────────────────────────────────────────────
+const PRECIO_KM        = 800;   // CLP por km
+const PRECIO_MIN_COMP  = 8000;  // mínimo compartido
+const PRECIO_MIN_VAN   = 50000; // mínimo van privada
+const PRECIO_VAN_MULTI = 3.5;   // multiplicador van vs compartido
+
+/**
+ * Calcula tarifas a partir de distancia en metros.
+ * Cuando Google Maps esté conectado, se reemplaza la distancia mock
+ * por el valor real de la Distance Matrix API.
+ */
+function calcularTarifas(distanciaMetros) {
+  const km      = distanciaMetros / 1000;
+  const persona = Math.max(PRECIO_MIN_COMP, Math.round(km * PRECIO_KM / 100) * 100);
+  const van     = Math.max(PRECIO_MIN_VAN,  Math.round(km * PRECIO_KM * PRECIO_VAN_MULTI / 500) * 500);
+  return { persona, van, km: `${Math.round(km)} km` };
+}
+
+// ── Servicio de geocodificación — Nominatim (OpenStreetMap, 100% gratuito) ────
+// Sin API Key, sin billing, sin tarjeta de crédito.
+// Límite: 1 request/segundo (más que suficiente para uso real).
+
+const mapsReady = () => true; // Nominatim siempre está disponible
+
+/** Busca sugerencias de direcciones usando Nominatim */
+async function buscarDirecciones(query) {
+  if (!query || query.length < 3) return [];
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?` +
+      `q=${encodeURIComponent(query + ", Chile")}&format=json&limit=5` +
+      `&countrycodes=cl&addressdetails=1`;
+    const res  = await fetch(url, { headers: { "Accept-Language": "es" } });
+    const data = await res.json();
+    return data.map(r => ({
+      label:   r.display_name.split(",").slice(0,3).join(",").trim(),
+      sub:     r.display_name.split(",").slice(3,5).join(",").trim(),
+      lat:     parseFloat(r.lat),
+      lng:     parseFloat(r.lon),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/** Calcula distancia real por carretera usando OSRM (OpenStreetMap Routing, gratuito) */
+async function obtenerDistancia(origen, destino) {
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/` +
+      `${origen.lng},${origen.lat};${destino.lng},${destino.lat}` +
+      `?overview=false`;
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (data.code === "Ok") return data.routes[0].distance; // metros reales
+  } catch {}
+  // Fallback Haversine si OSRM no responde
+  const R    = 6371000;
+  const dLat = (destino.lat - origen.lat) * Math.PI / 180;
+  const dLng = (destino.lng - origen.lng) * Math.PI / 180;
+  const a    = Math.sin(dLat/2)**2 +
+               Math.cos(origen.lat * Math.PI/180) *
+               Math.cos(destino.lat * Math.PI/180) *
+               Math.sin(dLng/2)**2;
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 1.28);
+}
+
+/** initAutocomplete — no-op, LugarInput usa buscarDirecciones directamente */
+function initAutocomplete() { return null; }
+
+// ── Coordenadas de puntos frecuentes (para sugerencias rápidas) ───────────────
+const PUNTOS_FRECUENTES = [
+  { id:"aeropuerto", label:"✈️  Aeropuerto Temuco ZCO", sub:"Terminal principal · La Araucanía", lat:-38.9258, lng:-72.6372 },
+  { id:"pucon",      label:"🏔️  Centro de Pucón",        sub:"Pucón, La Araucanía",               lat:-39.2724, lng:-71.9766 },
+  { id:"villarrica", label:"🌋  Centro de Villarrica",    sub:"Villarrica, La Araucanía",          lat:-39.2833, lng:-72.2333 },
+];
+
 // ── Componente principal ──────────────────────────────────────────────────────
 export default function Reservas() {
   const { usuario, cargando: cargandoAuth } = useUsuario();
 
-  const [pantalla,   setPantalla]   = useState("inicio");
-  const [origenId,   setOrigenId]   = useState("");
-  const [destinoId,  setDestinoId]  = useState("");
-  const [fecha,      setFecha]      = useState("");
-  const [pasajeros,  setPasajeros]  = useState(1);
-  const [tipoViaje,  setTipoViaje]  = useState("");
-  const [modoPago,   setModoPago]   = useState("abono");
-  const [enviando,   setEnviando]   = useState(false);
-  const [reservaId,  setReservaId]  = useState(null);
+  const [pantalla,  setPantalla]  = useState("inicio");
+
+  // Nuevo modelo de datos: objetos con { label, lat, lng } en vez de IDs
+  const [origen,    setOrigen]    = useState(null); // { label, lat, lng }
+  const [destino,   setDestino]   = useState(null); // { label, lat, lng }
+
+  // Compatibilidad hacia atrás (pantallas de tarifas/confirmar usan origenId)
+  const origenId  = origen?.id  || "custom";
+  const destinoId = destino?.id || "custom";
+
+  const [fecha,     setFecha]     = useState("");
+  const [pasajeros, setPasajeros] = useState(1);
+  const [tipoViaje, setTipoViaje] = useState("");
+  const [modoPago,  setModoPago]  = useState("abono");
+  const [enviando,  setEnviando]  = useState(false);
+  const [reservaId, setReservaId] = useState(null);
   const [asientosOcupados, setAsientosOcupados] = useState(0);
-  const [error,      setError]      = useState("");
+  const [error,     setError]     = useState("");
+
+  // Datos calculados desde Google Maps
+  const [distanciaM,    setDistanciaM]    = useState(null); // metros
+  const [calculando,    setCalculando]    = useState(false);
+  const [rutaDataDyn,   setRutaDataDyn]   = useState(null); // { persona, van, km, duracion }
+
   const topRef = useRef(null);
 
-  const rutaKey   = origenId && destinoId ? `${origenId}-${destinoId}` : null;
-  const rutaData  = rutaKey ? PRECIOS[rutaKey] : null;
-  const origen    = ORIGENES.find(o => o.id === origenId);
-  const destino   = DESTINOS_POR_ORIGEN[origenId]?.find(d => d.id === destinoId);
-  const rutaLabel = origen && destino ? `${origen.label} → ${destino.label}` : "";
-  const montoTotal = !rutaData ? 0 : tipoViaje === "van_completa" ? rutaData.van : rutaData.persona * pasajeros;
-  const aPagar     = tipoViaje === "van_completa" && modoPago === "abono" ? montoTotal * 0.5 : montoTotal;
+  // ── Calcular distancia cuando cambian origen y destino ─────────────────────
+  useEffect(() => {
+    if (!origen || !destino) { setDistanciaM(null); setRutaDataDyn(null); return; }
+    setCalculando(true);
+    obtenerDistancia(origen, destino)
+      .then(metros => {
+        setDistanciaM(metros);
+        const tarifas = calcularTarifas(metros);
+        setRutaDataDyn({
+          ...tarifas,
+          duracion: `~${Math.round(metros / 1000 / 60)} min`, // estimación simple
+        });
+      })
+      .catch(() => setError("No se pudo calcular la distancia. Intenta de nuevo."))
+      .finally(() => setCalculando(false));
+  }, [origen, destino]);
+
+  // rutaKey para compatibilidad con contarAsientosOcupados
+  const rutaKey = origen?.id && destino?.id ? `${origen.id}-${destino.id}` : null;
+  // Compatibilidad: rutaData ahora viene del cálculo dinámico
+  const rutaData     = rutaDataDyn;
+  const rutaLabel    = origen && destino ? `${origen.label.replace(/^.{3}/,"")} → ${destino.label.replace(/^.{3}/,"")}` : "";
+  const montoTotal   = !rutaData ? 0 : tipoViaje === "van_completa" ? rutaData.van : rutaData.persona * pasajeros;
+  const aPagar       = tipoViaje === "van_completa" && modoPago === "abono" ? montoTotal * 0.5 : montoTotal;
   const asientosLibres = Math.max(0, MAX_ASIENTOS - asientosOcupados);
 
-  const scroll = () => setTimeout(() => topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 40);
+  const scroll = () => setTimeout(() => topRef.current?.scrollIntoView({ behavior:"smooth", block:"start" }), 40);
   const ir = (p) => { setPantalla(p); scroll(); };
 
   useEffect(() => {
-    if (!origenId || !destinoId || !fecha || tipoViaje !== "compartido") return;
-    supabase.from("reservas").select("pasajeros")
-      .eq("ruta", rutaLabel).eq("fecha", fecha)
-      .eq("tipo_reserva", "compartido").neq("estado", "cancelado")
-      .then(({ data }) => setAsientosOcupados(data ? data.reduce((a,r) => a+(r.pasajeros||1), 0) : 0));
-  }, [origenId, destinoId, fecha, tipoViaje]);
+    if (!rutaKey || !fecha || tipoViaje !== "compartido") return;
+    contarAsientosOcupados(rutaKey, fecha).then(setAsientosOcupados);
+  }, [rutaKey, fecha, tipoViaje]);
 
   const confirmar = async () => {
     setError(""); setEnviando(true);
     try {
-      const { data, error: dbErr } = await supabase.from("reservas").insert([{
-        nombre:       usuario?.nombre   || "",
-        email:        usuario?.email    || "",
-        telefono:     usuario?.telefono || "",
-        ruta:         rutaLabel,
-        fecha,
-        vuelo_numero: "SIN_VUELO",
-        pasajeros:    Number(pasajeros),
-        tipo_reserva: tipoViaje,
-        estado:       "pendiente_pago",
-        notas:        tipoViaje === "van_completa"
-          ? `Pago: ${modoPago === "abono" ? "50% abono ("+precio(aPagar)+")" : "Completo ("+precio(montoTotal)+")"}`
-          : "Reserva compartida - sin pago previo",
-      }]).select().single();
-      if (dbErr) throw new Error("Error al guardar");
+      const tipo = tipoViaje === "compartido" ? "compartido" : "privado";
+      const precioPax = tipoViaje === "compartido" ? rutaData.persona : rutaData.van;
+
+      const viajeId = await obtenerOCrearViaje({
+        rutaKey, origenId, destinoId, fecha, tipo,
+        precio_por_pax: precioPax,
+      });
+
+      const { data, error: dbErr } = await supabase
+        .from("reservas")
+        .insert([{
+          viaje_id:      viajeId,
+          nombre:        usuario?.nombre   || "",
+          email:         usuario?.email    || "",
+          telefono:      usuario?.telefono || "",
+          num_asientos:  Number(pasajeros),
+          estado:        "pendiente",
+          origen_reserva:"web",
+          notas: tipoViaje === "van_completa"
+            ? `Pago: ${modoPago === "abono" ? "50% abono ("+precio(aPagar)+")" : "Completo ("+precio(montoTotal)+")"}`
+            : "Reserva compartida",
+        }])
+        .select()
+        .single();
+
+      if (dbErr) throw new Error("Error al guardar la reserva");
+
       setReservaId(data.id);
       setEnviando(false);
-      if (tipoViaje === "compartido") {
-        abrirWhatsApp(data.id);
-        ir("ok");
-      } else {
-        abrirWhatsApp(data.id);
+
+      abrirWhatsApp(data.id);
+      if (tipoViaje === "van_completa") {
         window.open("https://www.flow.cl/btn.php?token=o6f0a50ad75e315233752a57fb02bdba9453e509", "_blank");
-        ir("ok");
       }
-    } catch {
-      setError("Error al procesar. Intenta de nuevo.");
+      ir("ok");
+
+    } catch (e) {
+      setError(e.message || "Error al procesar. Intenta de nuevo.");
       setEnviando(false);
     }
   };
@@ -203,12 +395,10 @@ export default function Reservas() {
   };
 
   const reset = () => {
-    setPantalla("inicio"); setOrigenId(""); setDestinoId(""); setFecha("");
+    setPantalla("inicio"); setOrigen(null); setDestino(null); setFecha("");
     setPasajeros(1); setTipoViaje(""); setModoPago("abono");
     setReservaId(null); setError(""); scroll();
   };
-
-
 
   // ════════════════════════════════════════════════════════════════════════════
   // PANTALLA: OK ✓
@@ -217,31 +407,21 @@ export default function Reservas() {
     <div ref={topRef} style={S.root}>
       <style>{css}</style>
       <div style={S.okWrap} className="fade-in">
-        <div style={S.okCircle}>
-          <IcoCheck size={32}/>
-        </div>
-        <h2 style={S.okTitle}>
-          {tipoViaje === "compartido" ? "¡Reserva lista!" : "¡Van reservada!"}
-        </h2>
+        <div style={S.okCircle}><IcoCheck size={32}/></div>
+        <h2 style={S.okTitle}>{tipoViaje === "compartido" ? "¡Reserva lista!" : "¡Van reservada!"}</h2>
         <p style={S.okSub}>
           {tipoViaje === "compartido"
             ? `Te avisamos por WhatsApp cuando se llene el cupo (${MAX_ASIENTOS} pax).`
             : "Revisa tu WhatsApp con los detalles del pago."}
         </p>
-
         <div style={S.okCard}>
           <Row label="Ruta"      val={rutaLabel}/>
           <Row label="Fecha"     val={fmt(fecha)}/>
           <Row label="Pasajeros" val={`${pasajeros} pax`}/>
           <Row label="Total"     val={precio(montoTotal)} bold/>
         </div>
-
-        <button className="btn-wa" onClick={() => abrirWhatsApp(reservaId)}>
-          <IcoWA/> Abrir WhatsApp
-        </button>
-        <button className="btn-ghost" onClick={reset} style={{ marginTop: 10 }}>
-          Nueva reserva
-        </button>
+        <button className="btn-wa" onClick={() => abrirWhatsApp(reservaId)}><IcoWA/> Abrir WhatsApp</button>
+        <button className="btn-ghost" onClick={reset} style={{ marginTop:10 }}>Nueva reserva</button>
         <button className="btn-mis-reservas" onClick={() => document.dispatchEvent(new CustomEvent("openMisReservas"))}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
           Ver mis reservas
@@ -254,37 +434,33 @@ export default function Reservas() {
   // PANTALLA: CONFIRMAR
   // ════════════════════════════════════════════════════════════════════════════
   if (pantalla === "confirmar") {
-
-    // Sin sesión → pedir login antes de confirmar
     if (!cargandoAuth && !usuario) return (
       <div ref={topRef} style={S.root}>
         <style>{css}</style>
         <div style={S.wrap}>
           <div style={S.topBar}>
-            <button className="btn-back" onClick={() => ir("tarifas")}>
-              <IcoChevron dir="left" c="#1a1611" size={20}/>
-            </button>
+            <button className="btn-back" onClick={() => ir("tarifas")}><IcoChevron dir="left" c="#1a1611" size={20}/></button>
             <span style={S.topTitle}>Confirmar viaje</span>
-            <div style={{ width: 36 }}/>
+            <div style={{ width:36 }}/>
           </div>
           <div style={S.rutaPill} className="fade-in">
             <div style={S.rutaDot}/>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex:1 }}>
               <div style={S.rutaTexto}>{origen?.label}</div>
               <div style={S.rutaLinea}/>
               <div style={S.rutaTexto}>{destino?.label}</div>
             </div>
-            <div style={{ textAlign: "right" }}>
+            <div style={{ textAlign:"right" }}>
               <div style={S.pillMeta}>{fmt(fecha).split(",")[0]}</div>
               <div style={S.pillMeta}>{precio(montoTotal)}</div>
             </div>
           </div>
-          <div style={{ textAlign: "center", padding: "2rem 0 1rem" }}>
-            <div style={{ fontSize: "2rem", marginBottom: 10 }}>🔐</div>
-            <h3 style={{ fontFamily: "'Syne',sans-serif", fontSize: "1.2rem", fontWeight: 800, color: "#1a1611", marginBottom: 6 }}>
+          <div style={{ textAlign:"center", padding:"2rem 0 1rem" }}>
+            <div style={{ fontSize:"2rem", marginBottom:10 }}>🔐</div>
+            <h3 style={{ fontFamily:"'Syne',sans-serif", fontSize:"1.2rem", fontWeight:800, color:"#1a1611", marginBottom:6 }}>
               Inicia sesión para confirmar
             </h3>
-            <p style={{ color: "#9a9080", fontSize: "0.82rem", lineHeight: 1.6, marginBottom: 20 }}>
+            <p style={{ color:"#9a9080", fontSize:"0.82rem", lineHeight:1.6, marginBottom:20 }}>
               Tus datos se cargan automáticamente.<br/>No necesitas escribir nada al reservar.
             </p>
             <button className="btn-confirmar"
@@ -297,114 +473,91 @@ export default function Reservas() {
     );
 
     return (
-    <div ref={topRef} style={S.root}>
-      <style>{css}</style>
-      <div style={S.wrap}>
-
-        {/* Header */}
-        <div style={S.topBar}>
-          <button className="btn-back" onClick={() => ir("tarifas")}>
-            <IcoChevron dir="left" c="#1a1611" size={20}/>
-          </button>
-          <span style={S.topTitle}>Confirmar viaje</span>
-          <div style={{ width: 36 }}/>
-        </div>
-
-        {/* Ruta pill */}
-        <div style={S.rutaPill} className="fade-in">
-          <div style={S.rutaDot}/>
-          <div style={{ flex: 1 }}>
-            <div style={S.rutaTexto}>{origen?.label}</div>
-            <div style={S.rutaLinea}/>
-            <div style={S.rutaTexto}>{destino?.label}</div>
+      <div ref={topRef} style={S.root}>
+        <style>{css}</style>
+        <div style={S.wrap}>
+          <div style={S.topBar}>
+            <button className="btn-back" onClick={() => ir("tarifas")}><IcoChevron dir="left" c="#1a1611" size={20}/></button>
+            <span style={S.topTitle}>Confirmar viaje</span>
+            <div style={{ width:36 }}/>
           </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={S.pillMeta}>{rutaData?.km}</div>
-            <div style={S.pillMeta}>{rutaData?.duracion}</div>
-          </div>
-        </div>
-
-        {/* Detalles */}
-        <div style={S.section}>
-          <Row label="Fecha"    val={fmt(fecha)}/>
-          <Row label="Pasajeros" val={`${pasajeros} pax`}/>
-          <Row label="Tipo"     val={tipoViaje === "compartido" ? "Compartido" : "Van privada"}/>
-        </div>
-
-        {/* Modo pago — solo van */}
-        {tipoViaje === "van_completa" && (
-          <div style={{ ...S.section, paddingTop: 0 }}>
-            <p style={S.sectionLabel}>Modo de pago</p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              {[
-                { id: "abono", label: "50% ahora",    monto: precio(montoTotal * 0.5), sub: "Resto al viajar" },
-                { id: "total", label: "Pago completo", monto: precio(montoTotal),      sub: "Todo ahora" },
-              ].map(m => (
-                <button key={m.id}
-                  className={`pago-opt${modoPago === m.id ? " pago-opt-on" : ""}`}
-                  onClick={() => setModoPago(m.id)}>
-                  <span style={{ fontSize: "0.78rem", opacity: 0.7 }}>{m.label}</span>
-                  <span style={{ fontSize: "1.05rem", fontWeight: 800 }}>{m.monto}</span>
-                  <span style={{ fontSize: "0.68rem", opacity: 0.6 }}>{m.sub}</span>
-                </button>
-              ))}
+          <div style={S.rutaPill} className="fade-in">
+            <div style={S.rutaDot}/>
+            <div style={{ flex:1 }}>
+              <div style={S.rutaTexto}>{origen?.label}</div>
+              <div style={S.rutaLinea}/>
+              <div style={S.rutaTexto}>{destino?.label}</div>
+            </div>
+            <div style={{ textAlign:"right" }}>
+              <div style={S.pillMeta}>{rutaData?.km}</div>
+              <div style={S.pillMeta}>{rutaData?.duracion}</div>
             </div>
           </div>
-        )}
-
-        {/* Aviso compartido */}
-        {tipoViaje === "compartido" && (
-          <div style={S.aviso}>
-            <span style={{ fontSize: "1rem" }}>🕐</span>
-            <span style={{ fontSize: "0.78rem", color: "#92400e", lineHeight: 1.5 }}>
-              <strong>Sin costo ahora.</strong> Confirmamos cuando se complete el cupo de {MAX_ASIENTOS} pasajeros.
-              Quedan <strong>{asientosLibres} lugares.</strong>
+          <div style={S.section}>
+            <Row label="Fecha"     val={fmt(fecha)}/>
+            <Row label="Pasajeros" val={`${pasajeros} pax`}/>
+            <Row label="Tipo"      val={tipoViaje === "compartido" ? "Compartido" : "Van privada"}/>
+          </div>
+          {tipoViaje === "van_completa" && (
+            <div style={{ ...S.section, paddingTop:0 }}>
+              <p style={S.sectionLabel}>Modo de pago</p>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                {[
+                  { id:"abono", label:"50% ahora",    monto:precio(montoTotal*0.5), sub:"Resto al viajar" },
+                  { id:"total", label:"Pago completo", monto:precio(montoTotal),    sub:"Todo ahora" },
+                ].map(m => (
+                  <button key={m.id} className={`pago-opt${modoPago===m.id?" pago-opt-on":""}`} onClick={() => setModoPago(m.id)}>
+                    <span style={{ fontSize:"0.78rem", opacity:0.7 }}>{m.label}</span>
+                    <span style={{ fontSize:"1.05rem", fontWeight:800 }}>{m.monto}</span>
+                    <span style={{ fontSize:"0.68rem", opacity:0.6 }}>{m.sub}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {tipoViaje === "compartido" && (
+            <div style={S.aviso}>
+              <span style={{ fontSize:"1rem" }}>🕐</span>
+              <span style={{ fontSize:"0.78rem", color:"#92400e", lineHeight:1.5 }}>
+                <strong>Sin costo ahora.</strong> Confirmamos cuando se complete el cupo de {MAX_ASIENTOS} pasajeros.
+                Quedan <strong>{asientosLibres} lugares.</strong>
+              </span>
+            </div>
+          )}
+          <div style={S.section}>
+            <p style={S.sectionLabel}>Quién viaja</p>
+            <div style={S.usuarioRow}>
+              <div style={S.avatar}>{usuario?.avatar}</div>
+              <div>
+                <div style={{ fontSize:"0.9rem", fontWeight:700, color:"#1a1611" }}>{usuario?.nombre}</div>
+                <div style={{ fontSize:"0.75rem", color:"#9a9080" }}>{usuario?.telefono || usuario?.email}</div>
+              </div>
+            </div>
+          </div>
+          <div style={S.totalBox}>
+            <span style={{ fontSize:"0.85rem", color:"#9a9080" }}>
+              {tipoViaje === "compartido" ? "Total (se cobra al confirmar)" : "A pagar ahora"}
             </span>
+            <span style={{ fontSize:"clamp(1.3rem,5vw,1.6rem)", fontWeight:800, color:"#1a1611" }}>{precio(aPagar)}</span>
           </div>
-        )}
-
-        {/* Quién viaja */}
-        <div style={S.section}>
-          <p style={S.sectionLabel}>Quién viaja</p>
-          <div style={S.usuarioRow}>
-            <div style={S.avatar}>{usuario?.avatar}</div>
-            <div>
-              <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#1a1611" }}>{usuario?.nombre}</div>
-              <div style={{ fontSize: "0.75rem", color: "#9a9080" }}>{usuario?.telefono || usuario?.email}</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Total */}
-        <div style={S.totalBox}>
-          <span style={{ fontSize: "0.85rem", color: "#9a9080" }}>
-            {tipoViaje === "compartido" ? "Total (se cobra al confirmar)" : "A pagar ahora"}
-          </span>
-          <span style={{ fontSize: "clamp(1.3rem, 5vw, 1.6rem)", fontWeight: 800, color: "#1a1611" }}>{precio(aPagar)}</span>
-        </div>
-
-        {error && <div style={S.errBox}>⚠️ {error}</div>}
-
-        {tipoViaje === "compartido" ? (
-          <button className="btn-confirmar" disabled={enviando} onClick={confirmar}>
-            {enviando ? "Procesando..." : "Confirmar — sin pago ahora"}
-          </button>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <button className="btn-flow" disabled={enviando} onClick={confirmar}>
-              {enviando
-                ? <><span className="btn-spinner"/>Procesando...</>
-                : <><IcoLock/>Pagar {precio(aPagar)} con Flow</>
-              }
+          {error && <div style={S.errBox}>⚠️ {error}</div>}
+          {tipoViaje === "compartido" ? (
+            <button className="btn-confirmar" disabled={enviando} onClick={confirmar}>
+              {enviando ? "Procesando..." : "Confirmar — sin pago ahora"}
             </button>
-            <p style={{ textAlign: "center", fontSize: "0.7rem", color: "#9a9080", lineHeight: 1.5 }}>
-              Pago seguro vía Flow.cl · El resto lo pagas el día del viaje
-            </p>
-          </div>
-        )}
+          ) : (
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              <button className="btn-flow" disabled={enviando} onClick={confirmar}>
+                {enviando ? <><span className="btn-spinner"/>Procesando...</> : <><IcoLock/>Pagar {precio(aPagar)} con Flow</>}
+              </button>
+              <p style={{ textAlign:"center", fontSize:"0.7rem", color:"#9a9080", lineHeight:1.5 }}>
+                Pago seguro vía Flow.cl · El resto lo pagas el día del viaje
+              </p>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
   }
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -414,224 +567,492 @@ export default function Reservas() {
     <div ref={topRef} style={S.root}>
       <style>{css}</style>
       <div style={S.wrap}>
-
-        {/* Header */}
         <div style={S.topBar}>
-          <button className="btn-back" onClick={() => ir("inicio")}>
-            <IcoChevron dir="left" c="#1a1611" size={20}/>
-          </button>
+          <button className="btn-back" onClick={() => ir("inicio")}><IcoChevron dir="left" c="#1a1611" size={20}/></button>
           <span style={S.topTitle}>Elige tu viaje</span>
-          <div style={{ width: 36 }}/>
+          <div style={{ width:36 }}/>
         </div>
-
-        {/* Ruta resumen */}
         <div style={S.rutaPill} className="fade-in">
           <div style={S.rutaDot}/>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex:1 }}>
             <div style={S.rutaTexto}>{origen?.label}</div>
             <div style={S.rutaLinea}/>
             <div style={S.rutaTexto}>{destino?.label}</div>
           </div>
-          <div style={{ textAlign: "right" }}>
+          <div style={{ textAlign:"right" }}>
             <div style={S.pillMeta}>{fmt(fecha).split(",")[0]}</div>
             <div style={S.pillMeta}>{pasajeros} pax · {rutaData?.km}</div>
           </div>
         </div>
-
-        {/* Tarjetas */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
-
-          {/* Compartido */}
-          <button
-            className={`tarifa-card${tipoViaje === "compartido" ? " tarifa-on" : ""}`}
-            onClick={() => setTipoViaje("compartido")}
-          >
-            <div style={S.tarifaIco}>
-              <IcoBus size={30} c={tipoViaje === "compartido" ? "#1a1611" : "#9a9080"}/>
-            </div>
-            <div style={{ flex: 1, textAlign: "left" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontWeight: 700, fontSize: "1rem", color: "#1a1611" }}>Compartido</span>
-                {tipoViaje === "compartido" && (
-                  <span style={S.badge}>Más económico</span>
-                )}
+        <div style={{ display:"flex", flexDirection:"column", gap:10, marginTop:4 }}>
+          <button className={`tarifa-card${tipoViaje==="compartido"?" tarifa-on":""}`} onClick={() => setTipoViaje("compartido")}>
+            <div style={S.tarifaIco}><IcoBus size={30} c={tipoViaje==="compartido"?"#1a1611":"#9a9080"}/></div>
+            <div style={{ flex:1, textAlign:"left" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <span style={{ fontWeight:700, fontSize:"1rem", color:"#1a1611" }}>Compartido</span>
+                {tipoViaje==="compartido" && <span style={S.badge}>Más económico</span>}
               </div>
-              <div style={{ fontSize: "0.75rem", color: "#9a9080", marginTop: 3 }}>
+              <div style={{ fontSize:"0.75rem", color:"#9a9080", marginTop:3 }}>
                 {rutaData?.duracion} · {asientosLibres} asientos libres
               </div>
             </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontWeight: 800, fontSize: "1.1rem", color: "#1a1611" }}>
+            <div style={{ textAlign:"right" }}>
+              <div style={{ fontWeight:800, fontSize:"1.1rem", color:"#1a1611" }}>
                 {rutaData ? precio(rutaData.persona * pasajeros) : "—"}
               </div>
-              {pasajeros > 1 && (
-                <div style={{ fontSize: "0.7rem", color: "#9a9080" }}>{precio(rutaData?.persona || 0)} × {pasajeros}</div>
-              )}
+              {pasajeros > 1 && <div style={{ fontSize:"0.7rem", color:"#9a9080" }}>{precio(rutaData?.persona||0)} × {pasajeros}</div>}
             </div>
           </button>
-
-          {/* Van completa */}
-          <button
-            className={`tarifa-card${tipoViaje === "van_completa" ? " tarifa-on" : ""}`}
-            onClick={() => setTipoViaje("van_completa")}
-          >
-            <div style={S.tarifaIco}>
-              <IcoVan size={30} c={tipoViaje === "van_completa" ? "#1a1611" : "#9a9080"}/>
-            </div>
-            <div style={{ flex: 1, textAlign: "left" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontWeight: 700, fontSize: "1rem", color: "#1a1611" }}>Van privada</span>
+          <button className={`tarifa-card${tipoViaje==="van_completa"?" tarifa-on":""}`} onClick={() => setTipoViaje("van_completa")}>
+            <div style={S.tarifaIco}><IcoVan size={30} c={tipoViaje==="van_completa"?"#1a1611":"#9a9080"}/></div>
+            <div style={{ flex:1, textAlign:"left" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <span style={{ fontWeight:700, fontSize:"1rem", color:"#1a1611" }}>Van privada</span>
               </div>
-              <div style={{ fontSize: "0.75rem", color: "#9a9080", marginTop: 3 }}>
+              <div style={{ fontSize:"0.75rem", color:"#9a9080", marginTop:3 }}>
                 {rutaData?.duracion} · Exclusiva hasta {MAX_ASIENTOS} pax
               </div>
             </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontWeight: 800, fontSize: "1.1rem", color: "#1a1611" }}>
-                {rutaData ? precio(rutaData.van) : "—"}
-              </div>
-              <div style={{ fontSize: "0.7rem", color: "#9a9080" }}>van completa</div>
+            <div style={{ textAlign:"right" }}>
+              <div style={{ fontWeight:800, fontSize:"1.1rem", color:"#1a1611" }}>{rutaData ? precio(rutaData.van) : "—"}</div>
+              <div style={{ fontSize:"0.7rem", color:"#9a9080" }}>van completa</div>
             </div>
           </button>
         </div>
-
-        {/* CTA */}
-        <button
-          className="btn-confirmar"
-          style={{ marginTop: 20 }}
-          disabled={!tipoViaje}
-          onClick={() => ir("confirmar")}
-        >
-          {!tipoViaje
-            ? "Selecciona un viaje"
-            : tipoViaje === "compartido"
-              ? `Reservar asiento — ${precio(rutaData?.persona * pasajeros || 0)}`
-              : `Reservar van — ${precio((rutaData?.van || 0) * 0.5)} abono`
-          }
+        <button className="btn-confirmar" style={{ marginTop:20 }} disabled={!tipoViaje} onClick={() => ir("confirmar")}>
+          {!tipoViaje ? "Selecciona un viaje"
+            : tipoViaje==="compartido" ? `Reservar asiento — ${precio(rutaData?.persona*pasajeros||0)}`
+            : `Reservar van — ${precio((rutaData?.van||0)*0.5)} abono`}
         </button>
-
-        <p style={{ textAlign: "center", fontSize: "0.72rem", color: "#C8BEA8", marginTop: 12 }}>
-          Sin costo adicional por reservar
-        </p>
+        <p style={{ textAlign:"center", fontSize:"0.72rem", color:"#C8BEA8", marginTop:12 }}>Sin costo adicional por reservar</p>
       </div>
     </div>
   );
 
   // ════════════════════════════════════════════════════════════════════════════
-  // PANTALLA: INICIO
+  // PANTALLA: INICIO  ← los cambios están aquí
   // ════════════════════════════════════════════════════════════════════════════
   return (
     <div ref={topRef} style={S.root}>
       <style>{css}</style>
       <div style={S.wrap}>
-
-        {/* Saludo */}
         <div style={S.saludoRow} className="fade-in">
-          <div>
+          <div style={{ flex:1 }}>
             <p style={S.saludoSub}>{usuario ? `Hola, ${usuario.nombre.split(" ")[0]} 👋` : "¿A dónde viajas?"}</p>
+            <FrasesRotativas />
             <h2 style={S.saludoTitle}>¿A dónde<br/>vamos hoy?</h2>
           </div>
           {usuario && <div style={S.avatar}>{usuario.avatar}</div>}
         </div>
 
-        {/* Search box */}
-        <div style={S.searchBox} className="fade-in">
+        {/* ── Search box: Autocomplete Origen → Destino ── */}
+        <div style={{ display:"flex", flexDirection:"column", gap:8, position:"relative", zIndex:50 }} className="fade-in">
 
-          {/* Origen */}
-          <div style={S.searchRow}>
-            <div style={S.dotOrigen}/>
-            <select value={origenId}
-              onChange={e => { setOrigenId(e.target.value); setDestinoId(""); }}
-              style={{ ...S.select, color: origenId ? "#1a1611" : "#9a9080" }}>
-              <option value="">Punto de partida</option>
-              {ORIGENES.map(o => <option key={o.id} value={o.id}>{o.emoji} {o.label}</option>)}
-            </select>
+          <LugarInput
+            placeholder="Punto de partida"
+            value={origen}
+            onChange={val => { setOrigen(val); setDestino(null); }}
+            dotStyle="origen"
+          />
+
+          {/* Botón intercambiar + flecha */}
+          <div style={S.arrowSep}>
+            <button
+              style={S.swapBtn}
+              onClick={() => { const tmp = origen; setOrigen(destino); setDestino(tmp); }}
+              title="Intercambiar origen y destino"
+              disabled={!origen && !destino}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 16V4m0 0L3 8m4-4l4 4"/><path d="M17 8v12m0 0l4-4m-4 4l-4-4"/>
+              </svg>
+            </button>
           </div>
 
-          <div style={S.divider}/>
-
-          {/* Destino */}
-          <div style={S.searchRow}>
-            <div style={S.dotDestino}/>
-            <select value={destinoId}
-              onChange={e => setDestinoId(e.target.value)}
-              disabled={!origenId}
-              style={{ ...S.select, color: destinoId ? "#1a1611" : "#9a9080", opacity: origenId ? 1 : 0.5 }}>
-              <option value="">¿A dónde vas?</option>
-              {(DESTINOS_POR_ORIGEN[origenId] || []).map(d => <option key={d.id} value={d.id}>{d.emoji} {d.label}</option>)}
-            </select>
-          </div>
+          <LugarInput
+            placeholder="¿A dónde vas?"
+            value={destino}
+            onChange={setDestino}
+            dotStyle="destino"
+            disabled={!origen}
+          />
         </div>
 
-        {/* Fecha + pasajeros */}
-        <div style={{ display: "flex", gap: 10, marginTop: 10 }} className="fade-in">
-
-          {/* Fecha */}
-          <DateBtn fecha={fecha} setFecha={setFecha} hoy={hoy} fmt={fmt}/>
-
-          {/* Pasajeros */}
-          <div style={S.pill}>
-            <span style={{ fontSize: "0.78rem", color: "#9a9080", fontWeight: 600 }}>Pax</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <button className="cnt" onClick={() => setPasajeros(Math.max(1, pasajeros - 1))}>−</button>
-              <span style={{ fontWeight: 700, fontSize: "0.95rem", color: "#1a1611", minWidth: 16, textAlign: "center" }}>{pasajeros}</span>
-              <button className="cnt" onClick={() => setPasajeros(Math.min(MAX_ASIENTOS, pasajeros + 1))}>+</button>
-            </div>
+        {/* Badge de distancia / calculando */}
+        {(calculando || rutaDataDyn) && (
+          <div style={S.distBadge} className="fade-in">
+            {calculando ? (
+              <><span className="btn-spinner" style={{ width:12, height:12, borderWidth:1.5 }}/> Calculando ruta…</>
+            ) : (
+              <><span>📍</span> {rutaDataDyn.km} · tarifa desde {precio(rutaDataDyn.persona)}/pax</>
+            )}
           </div>
+        )}
+
+        {/* ── Fecha + Pasajeros ── */}
+        <div style={{ display:"flex", gap:10, marginTop:10 }} className="fade-in">
+          <DatePicker fecha={fecha} setFecha={setFecha} hoy={hoy} fmt={fmt} />
+          <PaxPicker pasajeros={pasajeros} setPasajeros={setPasajeros} max={MAX_ASIENTOS} />
         </div>
 
-        {/* Botón ver tarifas */}
         <button
           className="btn-confirmar"
-          style={{ marginTop: 14 }}
-          disabled={!origenId || !destinoId || !fecha}
+          style={{ marginTop:14 }}
+          disabled={!origen || !destino || !fecha || calculando || !rutaDataDyn}
           onClick={() => ir("tarifas")}
         >
-          Ver tarifas
+          {calculando ? "Calculando ruta…" : "Ver tarifas"}
         </button>
 
-        {/* Sugerencias rápidas */}
-        <div style={{ marginTop: 32 }} className="fade-in">
+        <div style={{ marginTop:32 }} className="fade-in">
           <p style={S.sectionLabel}>Rutas frecuentes</p>
-          <div style={{ display: "flex", flexDirection: "column" }}>
+          <div style={{ display:"flex", flexDirection:"column" }}>
             {[
-              { o: "aeropuerto", d: "pucon",      label: "Aeropuerto → Pucón",      meta: "95 km · 1h 30min · desde $15.000" },
-              { o: "aeropuerto", d: "villarrica",  label: "Aeropuerto → Villarrica", meta: "80 km · 1h 15min · desde $12.000" },
-              { o: "pucon",      d: "aeropuerto",  label: "Pucón → Aeropuerto",      meta: "95 km · 1h 30min · desde $15.000" },
-              { o: "villarrica", d: "aeropuerto",  label: "Villarrica → Aeropuerto", meta: "80 km · 1h 15min · desde $12.000" },
-            ].map((r, i) => (
-              <button key={i} className="ruta-row"
-                onClick={() => { setOrigenId(r.o); setDestinoId(r.d); }}>
-                <div style={S.rutaIcoSmall}>
-                  {r.o === "aeropuerto" ? "✈️" : r.o === "pucon" ? "🏔️" : "🌋"}
-                </div>
-                <div style={{ flex: 1, textAlign: "left" }}>
-                  <div style={{ fontWeight: 600, fontSize: "0.88rem", color: "#1a1611" }}>{r.label}</div>
-                  <div style={{ fontSize: "0.72rem", color: "#9a9080", marginTop: 2 }}>{r.meta}</div>
+              { o: PUNTOS_FRECUENTES[0], d: PUNTOS_FRECUENTES[1], label:"Aeropuerto → Pucón",      meta:"~95 km · desde $76.000" },
+              { o: PUNTOS_FRECUENTES[0], d: PUNTOS_FRECUENTES[2], label:"Aeropuerto → Villarrica", meta:"~80 km · desde $64.000" },
+              { o: PUNTOS_FRECUENTES[1], d: PUNTOS_FRECUENTES[0], label:"Pucón → Aeropuerto",      meta:"~95 km · desde $76.000" },
+              { o: PUNTOS_FRECUENTES[2], d: PUNTOS_FRECUENTES[0], label:"Villarrica → Aeropuerto", meta:"~80 km · desde $64.000" },
+            ].map((r,i) => (
+              <button key={i} className="ruta-row" onClick={() => { setOrigen(r.o); setDestino(r.d); }}>
+                <div style={S.rutaIcoSmall}>{r.o.id==="aeropuerto"?"✈️":r.o.id==="pucon"?"🏔️":"🌋"}</div>
+                <div style={{ flex:1, textAlign:"left" }}>
+                  <div style={{ fontWeight:600, fontSize:"0.88rem", color:"#1a1611" }}>{r.label}</div>
+                  <div style={{ fontSize:"0.72rem", color:"#9a9080", marginTop:2 }}>{r.meta}</div>
                 </div>
                 <IcoChevron/>
               </button>
             ))}
           </div>
         </div>
-
       </div>
     </div>
   );
 }
 
-// ── DateBtn ───────────────────────────────────────────────────────────────────
-function DateBtn({ fecha, setFecha, hoy, fmt }) {
-  const ref = useRef(null);
+// ── DatePicker: calendario nativo con picker ──────────────────────────────────
+function DatePicker({ fecha, setFecha, hoy, fmt }) {
+  const inputRef = useRef(null);
+
+  // Texto a mostrar en la pill
+  const textoFecha = fecha
+    ? (() => {
+        const [y,m,d] = fecha.split("-");
+        const date = new Date(y, m-1, d);
+        const dia  = date.toLocaleDateString("es-CL", { weekday:"short" });
+        const num  = date.getDate();
+        const mes  = date.toLocaleDateString("es-CL", { month:"short" });
+        return `${dia} ${num} ${mes}`;
+      })()
+    : "Elige día";
+
+  const abrir = () => {
+    const inp = inputRef.current;
+    if (!inp) return;
+    if (inp.showPicker) {
+      try { inp.showPicker(); } catch(e) { inp.focus(); }
+    } else {
+      inp.focus();
+    }
+  };
+
   return (
-    <div style={{ ...S.pill, flex: 1, cursor: "pointer" }} onClick={() => ref.current?.showPicker?.()}>
-      <span style={{ fontSize: "0.78rem", color: "#9a9080", fontWeight: 600 }}>Fecha</span>
-      <span style={{ fontWeight: fecha ? 700 : 400, fontSize: "0.88rem", color: fecha ? "#1a1611" : "#9a9080" }}>
-        {fecha ? fmt(fecha).split(",")[0] : "Elige día"}
+    <div style={{ ...S.pill, flex:1, cursor:"pointer" }} onClick={abrir}>
+      {/* Etiqueta superior con icono de calendario */}
+      <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+        <IcoCal size={13} c="#9a9080"/>
+        <span style={{ fontSize:"0.72rem", color:"#9a9080", fontWeight:600, letterSpacing:"0.02em" }}>Fecha</span>
+      </div>
+      {/* Valor */}
+      <span style={{
+        fontWeight: fecha ? 700 : 400,
+        fontSize: "0.9rem",
+        color: fecha ? "#1a1611" : "#9a9080",
+        letterSpacing: "-0.01em",
+      }}>
+        {textoFecha}
       </span>
-      <input ref={ref} type="date" min={hoy} value={fecha}
+      {/* Input invisible que dispara el picker nativo */}
+      <input
+        ref={inputRef}
+        type="date"
+        min={hoy}
+        value={fecha}
         onChange={e => setFecha(e.target.value)}
-        style={{ position: "absolute", opacity: 0, pointerEvents: "none", width: 0, height: 0 }}/>
+        style={{
+          position:"absolute", opacity:0, pointerEvents:"none",
+          width:0, height:0, top:0, left:0,
+        }}
+        tabIndex={-1}
+      />
+    </div>
+  );
+}
+
+// ── PaxPicker: icono torso + contador ────────────────────────────────────────
+function PaxPicker({ pasajeros, setPasajeros, max }) {
+  return (
+    <div style={{ ...S.pill, minWidth:120, cursor:"default" }}>
+      {/* Etiqueta con icono de torso */}
+      <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+        <IcoPax size={13} c="#9a9080"/>
+        <span style={{ fontSize:"0.72rem", color:"#9a9080", fontWeight:600, letterSpacing:"0.02em" }}>Pasajeros</span>
+      </div>
+      {/* Contador */}
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:2 }}>
+        <button
+          className="cnt"
+          onClick={() => setPasajeros(Math.max(1, pasajeros - 1))}
+          style={{ width:26, height:26 }}
+        >−</button>
+        <span style={{ fontWeight:800, fontSize:"1rem", color:"#1a1611", minWidth:18, textAlign:"center" }}>
+          {pasajeros}
+        </span>
+        <button
+          className="cnt"
+          onClick={() => setPasajeros(Math.min(max, pasajeros + 1))}
+          style={{ width:26, height:26 }}
+        >+</button>
+      </div>
+    </div>
+  );
+}
+
+// ── LugarInput — campo de autocomplete con sugerencias ───────────────────────
+function LugarInput({ placeholder, value, onChange, dotStyle, disabled }) {
+  const [query,       setQuery]       = useState("");
+  const [abierto,     setAbierto]     = useState(false);
+  const [activo,      setActivo]      = useState(false);
+  const [resultados,  setResultados]  = useState([]);
+  const [buscando,    setBuscando]    = useState(false);
+  const wrapRef   = useRef(null);
+  const timerRef  = useRef(null);
+
+  // Sincronizar input con valor externo
+  useEffect(() => {
+    if (!activo) setQuery(value ? value.label : "");
+  }, [value, activo]);
+
+  // Cerrar al click fuera
+  useEffect(() => {
+    const fn = (e) => { if (!wrapRef.current?.contains(e.target)) { setAbierto(false); setActivo(false); } };
+    document.addEventListener("mousedown", fn);
+    return () => document.removeEventListener("mousedown", fn);
+  }, []);
+
+  // Buscar con debounce 400ms
+  useEffect(() => {
+    clearTimeout(timerRef.current);
+    if (query.length < 3) { setResultados([]); return; }
+    timerRef.current = setTimeout(async () => {
+      setBuscando(true);
+      const res = await buscarDirecciones(query);
+      setResultados(res);
+      setBuscando(false);
+    }, 400);
+    return () => clearTimeout(timerRef.current);
+  }, [query]);
+
+  // Filtrar puntos frecuentes según query
+  const frecuentes = PUNTOS_FRECUENTES.filter(p =>
+    !query || p.label.toLowerCase().includes(query.toLowerCase()) ||
+    p.sub.toLowerCase().includes(query.toLowerCase())
+  );
+
+  const seleccionar = (punto) => {
+    onChange(punto);
+    setQuery(punto.label.replace(/^[^\w\s]{1,3}\s*/, "").trim());
+    setAbierto(false);
+    setActivo(false);
+    setResultados([]);
+  };
+
+  const handleFocus = () => { setActivo(true); setAbierto(true); };
+  const handleBlur  = () => setTimeout(() => {
+    if (!wrapRef.current?.contains(document.activeElement)) {
+      setActivo(false); setAbierto(false);
+    }
+  }, 150);
+
+  const dot = dotStyle === "origen"
+    ? <div style={S.dotOrigen}/>
+    : <div style={S.dotDestino}/>;
+
+  const mostrarDropdown = abierto && (frecuentes.length > 0 || resultados.length > 0 || buscando || query.length >= 3);
+
+  return (
+    <div ref={wrapRef} style={{ position:"relative" }}>
+      {/* Campo */}
+      <div style={{
+        ...S.searchBoxSingle,
+        borderColor: activo ? "#1a1611" : "#D4CBB8",
+        boxShadow:   activo ? "0 0 0 2px rgba(26,22,17,.12)" : "0 2px 12px rgba(26,22,17,.06)",
+        opacity:     disabled ? 0.5 : 1,
+        transition:  "border-color .2s, box-shadow .2s",
+      }}>
+        <div style={S.searchRow}>
+          {dot}
+          <input
+            value={query}
+            onChange={e => { setQuery(e.target.value); setAbierto(true); }}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            placeholder={placeholder}
+            disabled={disabled}
+            autoComplete="off"
+            style={{
+              flex:1, background:"transparent", border:"none", outline:"none",
+              fontSize:"0.95rem", fontFamily:"'DM Sans', sans-serif",
+              fontWeight: value ? 600 : 400,
+              color: value ? "#1a1611" : "#9a9080",
+            }}
+          />
+          {buscando && <span className="btn-spinner" style={{ width:14, height:14, borderWidth:1.5, borderTopColor:"#9a9080", borderColor:"#D4CBB8" }}/>}
+          {value && !buscando && (
+            <button
+              onMouseDown={e => { e.preventDefault(); onChange(null); setQuery(""); setResultados([]); }}
+              style={{ background:"none", border:"none", cursor:"pointer", padding:"2px 4px", color:"#C8BEA8", fontSize:"1.1rem", lineHeight:1 }}
+            >×</button>
+          )}
+        </div>
+      </div>
+
+      {/* Dropdown */}
+      {mostrarDropdown && (
+        <div style={S.dropdown}>
+          {/* Puntos frecuentes */}
+          {frecuentes.length > 0 && (
+            <>
+              <div style={S.dropHeader}>Rutas frecuentes</div>
+              {frecuentes.map(p => (
+                <button key={p.id} className="drop-item" onMouseDown={() => seleccionar(p)}>
+                  <div style={S.dropIcon}>{p.label.slice(0,2)}</div>
+                  <div style={{ flex:1, textAlign:"left" }}>
+                    <div style={{ fontSize:"0.85rem", fontWeight:600, color:"#1a1611" }}>{p.label.replace(/^[^\w\s]{1,3}\s*/,"")}</div>
+                    <div style={{ fontSize:"0.72rem", color:"#9a9080", marginTop:1 }}>{p.sub}</div>
+                  </div>
+                </button>
+              ))}
+            </>
+          )}
+
+          {/* Resultados Nominatim */}
+          {resultados.length > 0 && (
+            <>
+              <div style={S.dropHeader}>Resultados</div>
+              {resultados.map((r, i) => (
+                <button key={i} className="drop-item" onMouseDown={() => seleccionar(r)}>
+                  <div style={{ ...S.dropIcon, fontSize:"0.9rem" }}>📍</div>
+                  <div style={{ flex:1, textAlign:"left" }}>
+                    <div style={{ fontSize:"0.85rem", fontWeight:600, color:"#1a1611" }}>{r.label}</div>
+                    {r.sub && <div style={{ fontSize:"0.72rem", color:"#9a9080", marginTop:1 }}>{r.sub}</div>}
+                  </div>
+                </button>
+              ))}
+            </>
+          )}
+
+          {/* Buscando */}
+          {buscando && (
+            <div style={{ padding:"12px 16px", display:"flex", alignItems:"center", gap:8, color:"#9a9080", fontSize:"0.8rem" }}>
+              <span className="btn-spinner" style={{ width:13, height:13, borderWidth:1.5, borderTopColor:"#9a9080", borderColor:"#D4CBB8" }}/>
+              Buscando direcciones…
+            </div>
+          )}
+
+          {/* Sin resultados */}
+          {!buscando && query.length >= 3 && resultados.length === 0 && frecuentes.length === 0 && (
+            <div style={S.dropAviso}>
+              <span>🔍</span>
+              <span>Sin resultados para "{query}"</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ── FrasesRotativas ───────────────────────────────────────────────────────────
+const FRASES = [
+  { texto: "Una nueva forma de viajar",          emoji: "✨" },
+  { texto: "Más económico que un taxi",          emoji: "💸" },
+  { texto: "Más cómodo que el bus",              emoji: "😌" },
+  { texto: "Más personalizado, siempre",         emoji: "🎯" },
+  { texto: "Sin filas. Sin esperas.",            emoji: "⚡" },
+  { texto: "Tu ruta, a tu hora",                emoji: "🕐" },
+  { texto: "Paga solo cuando se confirma",       emoji: "🙌" },
+  { texto: "De puerta a puerta en la Araucanía", emoji: "🏔️" },
+];
+
+function FrasesRotativas() {
+  const [idx,     setIdx]     = useState(0);
+  const [estado,  setEstado]  = useState("visible"); // "visible" | "saliendo" | "entrando"
+
+  useEffect(() => {
+    const ciclo = setInterval(() => {
+      // 1. Inicia salida hacia la izquierda
+      setEstado("saliendo");
+      setTimeout(() => {
+        // 2. Cambia el texto mientras está invisible
+        setIdx(i => (i + 1) % FRASES.length);
+        setEstado("entrando");
+        // 3. Vuelve a visible
+        setTimeout(() => setEstado("visible"), 30);
+      }, 380);
+    }, 3200);
+    return () => clearInterval(ciclo);
+  }, []);
+
+  const frase = FRASES[idx];
+
+  const transformMap = {
+    visible:  "translateX(0)    scale(1)",
+    saliendo: "translateX(-28px) scale(0.94)",
+    entrando: "translateX(22px)  scale(0.96)",
+  };
+  const opacityMap = { visible:1, saliendo:0, entrando:0 };
+
+  return (
+    <div style={{
+      overflow:   "hidden",
+      margin:     "8px 0 12px",
+      height:     30,
+      display:    "flex",
+      alignItems: "center",
+    }}>
+      <div style={{
+        display:    "flex",
+        alignItems: "center",
+        gap:        7,
+        transform:  transformMap[estado],
+        opacity:    opacityMap[estado],
+        transition: estado === "saliendo"
+          ? "transform 0.35s cubic-bezier(.4,0,.6,1), opacity 0.28s ease"
+          : estado === "visible"
+          ? "transform 0.4s cubic-bezier(.2,.8,.4,1), opacity 0.32s ease"
+          : "none",
+        willChange: "transform, opacity",
+      }}>
+        {/* Píldora de acento */}
+        <span style={{
+          display:         "inline-flex",
+          alignItems:      "center",
+          gap:             5,
+          background:      "#1a1611",
+          color:           "#F5EDD8",
+          borderRadius:    99,
+          padding:         "3px 11px 3px 7px",
+          fontSize:        "0.78rem",
+          fontWeight:      700,
+          letterSpacing:   "-0.01em",
+          whiteSpace:      "nowrap",
+          fontFamily:      "'DM Sans', sans-serif",
+        }}>
+          <span style={{ fontSize: "0.82rem", lineHeight: 1 }}>{frase.emoji}</span>
+          {frase.texto}
+        </span>
+      </div>
     </div>
   );
 }
@@ -639,9 +1060,9 @@ function DateBtn({ fecha, setFecha, hoy, fmt }) {
 // ── Row helper ────────────────────────────────────────────────────────────────
 function Row({ label, val, bold }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.6rem 0", borderBottom: "1px solid #E8E0D0" }}>
-      <span style={{ fontSize: "0.82rem", color: "#9a9080" }}>{label}</span>
-      <span style={{ fontSize: bold ? "1rem" : "0.85rem", fontWeight: bold ? 800 : 600, color: "#1a1611" }}>{val}</span>
+    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"0.6rem 0", borderBottom:"1px solid #E8E0D0" }}>
+      <span style={{ fontSize:"0.82rem", color:"#9a9080" }}>{label}</span>
+      <span style={{ fontSize:bold?"1rem":"0.85rem", fontWeight:bold?800:600, color:"#1a1611" }}>{val}</span>
     </div>
   );
 }
@@ -650,10 +1071,7 @@ function Row({ label, val, bold }) {
 const css = `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600;700;800&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  /* ── Responsive base — evita zoom automático en Xiaomi/MIUI ── */
-  input, select, textarea { font-size: 16px !important; } /* evita zoom en iOS/Android al enfocar */
-  
+  input, select, textarea { font-size: 16px !important; }
   @media (max-width: 380px) {
     .btn-confirmar { font-size: 0.85rem !important; padding: 13px !important; }
     .btn-flow      { font-size: 0.85rem !important; padding: 13px !important; }
@@ -661,207 +1079,130 @@ const css = `
     .ruta-row      { padding: 11px 4px !important; }
     .pago-opt      { padding: 0.75rem 0.8rem !important; }
   }
-
-  @media (max-width: 320px) {
-    .btn-confirmar { font-size: 0.8rem !important; padding: 12px !important; }
-    .tarifa-card   { gap: 8px !important; }
-  }
-
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(12px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
   .fade-in { animation: fadeIn 0.3s ease both; }
-
   select { appearance: none; -webkit-appearance: none; }
   select option { background: #EDE5D0; color: #1a1611; }
-
-  .btn-back {
-    width: 36px; height: 36px; border-radius: 50%;
-    border: 1.5px solid #D4CBB8; background: #EDE5D0;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; transition: background .15s;
-  }
+  .btn-back { width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid #D4CBB8; background: #EDE5D0; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background .15s; }
   .btn-back:hover { background: #D4CBB8; }
-
-  .btn-confirmar {
-    width: 100%; padding: clamp(14px, 4vw, 17px);
-    background: #1a1611; color: #F5EDD8;
-    border: none; border-radius: 14px;
-    font-size: clamp(0.9rem, 4vw, 1rem); font-weight: 800;
-    font-family: 'DM Sans', sans-serif;
-    cursor: pointer; transition: all .2s;
-    box-shadow: 0 4px 20px rgba(26,22,17,.2);
-    letter-spacing: -0.01em;
-  }
-  .btn-confirmar:hover:not(:disabled) {
-    background: #2d2820;
-    transform: translateY(-1px);
-    box-shadow: 0 6px 28px rgba(26,22,17,.28);
-  }
-  .btn-confirmar:active:not(:disabled) { transform: translateY(0); }
+  .btn-confirmar { width: 100%; padding: clamp(14px, 4vw, 17px); background: #1a1611; color: #F5EDD8; border: none; border-radius: 14px; font-size: clamp(0.9rem, 4vw, 1rem); font-weight: 800; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all .2s; box-shadow: 0 4px 20px rgba(26,22,17,.2); letter-spacing: -0.01em; }
+  .btn-confirmar:hover:not(:disabled) { background: #2d2820; transform: translateY(-1px); box-shadow: 0 6px 28px rgba(26,22,17,.28); }
   .btn-confirmar:disabled { background: #D4CBB8; color: #9a9080; cursor: not-allowed; box-shadow: none; }
-
-  .btn-wa {
-    width: 100%; padding: 15px;
-    display: flex; align-items: center; justify-content: center; gap: 8px;
-    background: #22c55e; color: #fff; border: none; border-radius: 14px;
-    font-size: 0.95rem; font-weight: 700;
-    font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all .2s;
-    box-shadow: 0 4px 16px rgba(34,197,94,.3);
-  }
+  .btn-wa { width: 100%; padding: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; background: #22c55e; color: #fff; border: none; border-radius: 14px; font-size: 0.95rem; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all .2s; box-shadow: 0 4px 16px rgba(34,197,94,.3); }
   .btn-wa:hover { background: #16a34a; }
-
-  .btn-ghost {
-    width: 100%; padding: 14px;
-    background: transparent; color: #9a9080;
-    border: 1.5px solid #D4CBB8; border-radius: 14px;
-    font-size: 0.88rem; font-weight: 600;
-    font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all .2s;
-  }
+  .btn-ghost { width: 100%; padding: 14px; background: transparent; color: #9a9080; border: 1.5px solid #D4CBB8; border-radius: 14px; font-size: 0.88rem; font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all .2s; }
   .btn-ghost:hover { border-color: #9a9080; color: #3d3629; }
-
-  .cnt {
-    width: 28px; height: 28px; border-radius: 50%;
-    border: 1.5px solid #C8BEA8; background: transparent;
-    color: #1a1611; font-size: 1.1rem; font-weight: 600;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; transition: all .15s; font-family: inherit;
-  }
+  .cnt { border-radius: 50%; border: 1.5px solid #C8BEA8; background: transparent; color: #1a1611; font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .15s; font-family: inherit; }
   .cnt:hover { background: #D4CBB8; }
-
-  .tarifa-card {
-    display: flex; align-items: center; gap: 14px;
-    padding: 1.1rem 1.15rem; border-radius: 16px;
-    border: 1.5px solid #D4CBB8; background: #EDE5D0;
-    cursor: pointer; transition: all .2s;
-    font-family: 'DM Sans', sans-serif; text-align: left; width: 100%;
-  }
+  .tarifa-card { display: flex; align-items: center; gap: 14px; padding: 1.1rem 1.15rem; border-radius: 16px; border: 1.5px solid #D4CBB8; background: #EDE5D0; cursor: pointer; transition: all .2s; font-family: 'DM Sans', sans-serif; text-align: left; width: 100%; }
   .tarifa-card:hover { border-color: #9a9080; background: #E8E0D0; }
-  .tarifa-on {
-    border-color: #1a1611 !important;
-    background: #F5EDD8 !important;
-    box-shadow: 0 0 0 2px #1a1611;
-  }
-
-  .pago-opt {
-    display: flex; flex-direction: column; gap: 4px; padding: 1rem;
-    border-radius: 14px; border: 1.5px solid #D4CBB8;
-    background: #EDE5D0; color: #1a1611; cursor: pointer;
-    transition: all .2s; font-family: 'DM Sans', sans-serif; text-align: left;
-  }
+  .tarifa-on { border-color: #1a1611 !important; background: #F5EDD8 !important; box-shadow: 0 0 0 2px #1a1611; }
+  .pago-opt { display: flex; flex-direction: column; gap: 4px; padding: 1rem; border-radius: 14px; border: 1.5px solid #D4CBB8; background: #EDE5D0; color: #1a1611; cursor: pointer; transition: all .2s; font-family: 'DM Sans', sans-serif; text-align: left; }
   .pago-opt:hover { border-color: #9a9080; }
   .pago-opt-on { border-color: #1a1611 !important; background: #1a1611 !important; color: #F5EDD8 !important; }
-
-  .ruta-row {
-    display: flex; align-items: center; gap: 14px;
-    padding: 14px 4px; width: 100%;
-    background: transparent; border: none;
-    border-bottom: 1px solid #E8E0D0;
-    cursor: pointer; transition: all .15s;
-    font-family: 'DM Sans', sans-serif;
-  }
+  .ruta-row { display: flex; align-items: center; gap: 14px; padding: 14px 4px; width: 100%; background: transparent; border: none; border-bottom: 1px solid #E8E0D0; cursor: pointer; transition: all .15s; font-family: 'DM Sans', sans-serif; }
   .ruta-row:hover { padding-left: 10px; padding-right: 10px; background: #EDE5D0; border-radius: 12px; border-bottom-color: transparent; }
   .ruta-row:last-child { border-bottom: none; }
-
   @keyframes spin { to { transform: rotate(360deg); } }
-  .spinner {
-    width: 36px; height: 36px; border-radius: 50%;
-    border: 3px solid #D4CBB8; border-top-color: #1a1611;
-    animation: spin 0.7s linear infinite;
-    margin: 0 auto;
-  }
-
-  /* Botón Flow (pago van) */
-  .btn-flow {
-    width: 100%; padding: 17px;
-    display: flex; align-items: center; justify-content: center; gap: 8px;
-    background: #c0290e; color: #fff;
-    border: none; border-radius: 14px;
-    font-size: 1rem; font-weight: 800;
-    font-family: 'DM Sans', sans-serif;
-    cursor: pointer; transition: all .2s;
-    box-shadow: 0 4px 20px rgba(192,41,14,.3);
-    letter-spacing: -0.01em;
-  }
-  .btn-flow:hover:not(:disabled) {
-    background: #a5230c;
-    transform: translateY(-1px);
-    box-shadow: 0 6px 28px rgba(192,41,14,.4);
-  }
-  .btn-flow:active:not(:disabled) { transform: translateY(0); }
+  .btn-flow { width: 100%; padding: 17px; display: flex; align-items: center; justify-content: center; gap: 8px; background: #c0290e; color: #fff; border: none; border-radius: 14px; font-size: 1rem; font-weight: 800; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all .2s; box-shadow: 0 4px 20px rgba(192,41,14,.3); }
+  .btn-flow:hover:not(:disabled) { background: #a5230c; transform: translateY(-1px); }
   .btn-flow:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
-
-  .btn-mis-reservas {
-    width: 100%; padding: 13px; margin-top: 8px;
-    display: flex; align-items: center; justify-content: center; gap: 8px;
-    background: transparent; color: #1a1611;
-    border: 1.5px solid #1a1611; border-radius: 14px;
-    font-size: 0.88rem; font-weight: 700;
-    font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all .2s;
-  }
+  .btn-mis-reservas { width: 100%; padding: 13px; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; background: transparent; color: #1a1611; border: 1.5px solid #1a1611; border-radius: 14px; font-size: 0.88rem; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all .2s; }
   .btn-mis-reservas:hover { background: #1a1611; color: #fff; }
-
-  .btn-spinner {
-    width: 17px; height: 17px; border-radius: 50%;
-    border: 2px solid rgba(255,255,255,.35);
-    border-top-color: #fff;
-    animation: spin .7s linear infinite;
-    display: inline-block; flex-shrink: 0;
-  }
+  .btn-spinner { width: 17px; height: 17px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; animation: spin .7s linear infinite; display: inline-block; flex-shrink: 0; }
+  .drop-item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 16px; background: transparent; border: none; cursor: pointer; transition: background .15s; font-family: 'DM Sans', sans-serif; }
+  .drop-item:hover { background: #FAF7F2; }
+  .drop-item:last-of-type { margin-bottom: 4px; }
 `;
 
-// ── Styles ────────────────────────────────────────────────────────────────────
 const S = {
-  root:       { background: "#ffffff", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif" },
-  wrap:       { maxWidth: 480, width: "100%", margin: "0 auto", padding: "0 clamp(14px, 4vw, 24px) 80px", boxSizing: "border-box" },
+  root:        { background:"#ffffff", minHeight:"100vh", fontFamily:"'DM Sans', sans-serif" },
+  wrap:        { maxWidth:480, width:"100%", margin:"0 auto", padding:"0 clamp(14px,4vw,24px) 80px", boxSizing:"border-box" },
+  saludoRow:   { display:"flex", justifyContent:"space-between", alignItems:"flex-start", paddingTop:"clamp(1.25rem,5vw,2.5rem)", paddingBottom:"1.25rem" },
+  saludoSub:   { fontSize:"0.85rem", color:"#9a9080", marginBottom:4, fontWeight:500 },
+  saludoTitle: { fontFamily:"'Syne', sans-serif", fontSize:"clamp(1.5rem,6vw,2.2rem)", fontWeight:800, color:"#1a1611", lineHeight:1.12 },
 
-  // Inicio
-  saludoRow:  { display: "flex", justifyContent: "space-between", alignItems: "flex-start", paddingTop: "clamp(1.25rem, 5vw, 2.5rem)", paddingBottom: "1.25rem" },
-  saludoSub:  { fontSize: "0.85rem", color: "#9a9080", marginBottom: 4, fontWeight: 500 },
-  saludoTitle:{ fontFamily: "'Syne', sans-serif", fontSize: "clamp(1.5rem,6vw,2.2rem)", fontWeight: 800, color: "#1a1611", lineHeight: 1.12 },
+  // Caja individual para cada campo de ruta
+  searchBoxSingle: {
+    background:"#EDE5D0", border:"1px solid #D4CBB8", borderRadius:16,
+    boxShadow:"0 2px 12px rgba(26,22,17,.06)",
+    transition:"border-color .2s, box-shadow .2s",
+  },
 
-  searchBox:  { background: "#EDE5D0", border: "1px solid #D4CBB8", borderRadius: 18, overflow: "hidden", boxShadow: "0 2px 16px rgba(26,22,17,.07)" },
-  searchRow:  { display: "flex", alignItems: "center", gap: 14, padding: "16px 18px" },
-  divider:    { height: 1, background: "#D4CBB8", margin: "0 18px" },
-  select:     { flex: 1, background: "transparent", border: "none", outline: "none", fontSize: "0.95rem", fontFamily: "'DM Sans', sans-serif", cursor: "pointer", fontWeight: 500 },
+  // Separador con botón swap
+  arrowSep: {
+    display:"flex", alignItems:"center", justifyContent:"center",
+    height:22, position:"relative",
+  },
 
-  dotOrigen:  { width: 10, height: 10, borderRadius: "50%", border: "2.5px solid #1a1611", flexShrink: 0 },
-  dotDestino: { width: 10, height: 10, borderRadius: 2, background: "#1a1611", flexShrink: 0 },
+  swapBtn: {
+    width:30, height:30, borderRadius:"50%",
+    background:"#fff", border:"1.5px solid #D4CBB8",
+    display:"flex", alignItems:"center", justifyContent:"center",
+    cursor:"pointer", color:"#9a9080",
+    transition:"all .2s", boxShadow:"0 1px 6px rgba(26,22,17,.08)",
+    zIndex:1,
+  },
 
-  pill:       { background: "#EDE5D0", border: "1px solid #D4CBB8", borderRadius: 14, padding: "12px 16px", display: "flex", flexDirection: "column", gap: 4, position: "relative", boxShadow: "0 2px 10px rgba(26,22,17,.05)" },
+  // Badge distancia
+  distBadge: {
+    display:"flex", alignItems:"center", gap:6,
+    background:"#F0EBE0", border:"1px solid #D4CBB8",
+    borderRadius:99, padding:"5px 14px",
+    fontSize:"0.75rem", fontWeight:600, color:"#6b5e4e",
+    marginTop:8, alignSelf:"flex-start",
+  },
 
-  rutaIcoSmall: { width: 38, height: 38, borderRadius: 10, background: "#E8E0D0", border: "1px solid #D4CBB8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", flexShrink: 0 },
+  // Dropdown autocomplete
+  dropdown: {
+    position:"absolute", top:"calc(100% + 6px)", left:0, right:0,
+    background:"#fff", border:"1px solid #E0D8CC",
+    borderRadius:14, boxShadow:"0 8px 32px rgba(26,22,17,.14)",
+    zIndex:9999, overflow:"visible",
+  },
+  dropHeader: {
+    padding:"8px 16px 4px",
+    fontSize:"0.67rem", fontWeight:700, color:"#C8BEA8",
+    textTransform:"uppercase", letterSpacing:"0.07em",
+  },
+  dropIcon: {
+    width:34, height:34, borderRadius:10,
+    background:"#F0EBE0", display:"flex", alignItems:"center",
+    justifyContent:"center", fontSize:"1rem", flexShrink:0,
+  },
+  dropAviso: {
+    display:"flex", alignItems:"flex-start", gap:8,
+    padding:"10px 16px", margin:"4px 8px 8px",
+    background:"#FDF9F3", border:"1px solid #E8E0D0",
+    borderRadius:10, fontSize:"0.72rem", color:"#9a9080", lineHeight:1.5,
+  },
 
-  // Tarifas / Confirmar — header
-  topBar:     { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1.5rem 0 1rem" },
-  topTitle:   { fontFamily: "'Syne', sans-serif", fontSize: "clamp(0.9rem, 4vw, 1.05rem)", fontWeight: 800, color: "#1a1611" },
+  searchRow:   { display:"flex", alignItems:"center", gap:14, padding:"15px 18px" },
+  select:      { flex:1, background:"transparent", border:"none", outline:"none", fontSize:"0.95rem", fontFamily:"'DM Sans', sans-serif", cursor:"pointer", fontWeight:500 },
+  dotOrigen:   { width:10, height:10, borderRadius:"50%", border:"2.5px solid #1a1611", flexShrink:0 },
+  dotDestino:  { width:10, height:10, borderRadius:2, background:"#1a1611", flexShrink:0 },
 
-  rutaPill:   { background: "#EDE5D0", border: "1px solid #D4CBB8", borderRadius: 16, padding: "14px 16px", display: "flex", alignItems: "center", gap: 14, marginBottom: 16, boxShadow: "0 2px 12px rgba(26,22,17,.06)" },
-  rutaDot:    { display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0 },
-  rutaTexto:  { fontSize: "0.88rem", fontWeight: 700, color: "#1a1611" },
-  rutaLinea:  { height: 14, width: 1, background: "#D4CBB8", margin: "4px 0" },
-  pillMeta:   { fontSize: "0.72rem", color: "#9a9080", lineHeight: 1.8 },
-
-  tarifaIco:  { width: 52, height: 52, borderRadius: 14, background: "#E8E0D0", border: "1px solid #D4CBB8", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
-  badge:      { fontSize: "0.65rem", background: "#1a1611", color: "#F5EDD8", padding: "2px 8px", borderRadius: 99, fontWeight: 700 },
-
-  section:    { padding: "0.5rem 0 1rem", borderBottom: "1px solid #E8E0D0", marginBottom: "1rem" },
-  sectionLabel:{ fontSize: "0.72rem", fontWeight: 700, color: "#9a9080", letterSpacing: "0.06em", marginBottom: "0.6rem" },
-
-  aviso:      { display: "flex", gap: 10, background: "rgba(245,193,7,0.1)", border: "1px solid rgba(245,193,7,0.3)", borderRadius: 12, padding: "0.9rem", marginBottom: "1rem" },
-
-  usuarioRow: { display: "flex", alignItems: "center", gap: 12 },
-  avatar:     { width: 42, height: 42, borderRadius: "50%", background: "#1a1611", color: "#F5EDD8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.8rem", fontWeight: 800, flexShrink: 0 },
-
-  totalBox:   { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1rem 0", marginBottom: "1rem" },
-  errBox:     { padding: "0.8rem 1rem", background: "rgba(192,41,14,0.08)", border: "1px solid rgba(192,41,14,0.2)", borderRadius: 10, color: "#c0290e", fontSize: "0.82rem", marginBottom: "0.75rem" },
-
-  // OK
-  okWrap:     { maxWidth: 480, width: "100%", margin: "0 auto", padding: "clamp(2rem,8vw,4rem) clamp(14px,4vw,24px) 80px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", boxSizing: "border-box" },
-  okCircle:   { width: 72, height: 72, borderRadius: "50%", background: "#1a1611", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20 },
-  okTitle:    { fontFamily: "'Syne', sans-serif", fontSize: "clamp(1.4rem, 5vw, 1.8rem)", fontWeight: 800, color: "#1a1611", marginBottom: 8 },
-  okSub:      { fontSize: "0.85rem", color: "#9a9080", lineHeight: 1.6, maxWidth: 300, marginBottom: 24 },
-  okCard:     { background: "#EDE5D0", border: "1px solid #D4CBB8", borderRadius: 16, padding: "0.5rem 1.25rem", width: "100%", marginBottom: 24 },
-  spinnerWrap:{ display: "flex", justifyContent: "center", marginBottom: 8 },
+  pill:        { background:"#EDE5D0", border:"1px solid #D4CBB8", borderRadius:14, padding:"11px 16px", display:"flex", flexDirection:"column", gap:3, position:"relative", boxShadow:"0 2px 10px rgba(26,22,17,.05)" },
+  rutaIcoSmall:{ width:38, height:38, borderRadius:10, background:"#E8E0D0", border:"1px solid #D4CBB8", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"1.1rem", flexShrink:0 },
+  topBar:      { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"1.5rem 0 1rem" },
+  topTitle:    { fontFamily:"'Syne', sans-serif", fontSize:"clamp(0.9rem,4vw,1.05rem)", fontWeight:800, color:"#1a1611" },
+  rutaPill:    { background:"#EDE5D0", border:"1px solid #D4CBB8", borderRadius:16, padding:"14px 16px", display:"flex", alignItems:"center", gap:14, marginBottom:16, boxShadow:"0 2px 12px rgba(26,22,17,.06)" },
+  rutaDot:     { display:"flex", flexDirection:"column", alignItems:"center", gap:2, flexShrink:0 },
+  rutaTexto:   { fontSize:"0.88rem", fontWeight:700, color:"#1a1611" },
+  rutaLinea:   { height:14, width:1, background:"#D4CBB8", margin:"4px 0" },
+  pillMeta:    { fontSize:"0.72rem", color:"#9a9080", lineHeight:1.8 },
+  tarifaIco:   { width:52, height:52, borderRadius:14, background:"#E8E0D0", border:"1px solid #D4CBB8", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 },
+  badge:       { fontSize:"0.65rem", background:"#1a1611", color:"#F5EDD8", padding:"2px 8px", borderRadius:99, fontWeight:700 },
+  section:     { padding:"0.5rem 0 1rem", borderBottom:"1px solid #E8E0D0", marginBottom:"1rem" },
+  sectionLabel:{ fontSize:"0.72rem", fontWeight:700, color:"#9a9080", letterSpacing:"0.06em", marginBottom:"0.6rem" },
+  aviso:       { display:"flex", gap:10, background:"rgba(245,193,7,0.1)", border:"1px solid rgba(245,193,7,0.3)", borderRadius:12, padding:"0.9rem", marginBottom:"1rem" },
+  usuarioRow:  { display:"flex", alignItems:"center", gap:12 },
+  avatar:      { width:42, height:42, borderRadius:"50%", background:"#1a1611", color:"#F5EDD8", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"0.8rem", fontWeight:800, flexShrink:0 },
+  totalBox:    { display:"flex", justifyContent:"space-between", alignItems:"center", padding:"1rem 0", marginBottom:"1rem" },
+  errBox:      { padding:"0.8rem 1rem", background:"rgba(192,41,14,0.08)", border:"1px solid rgba(192,41,14,0.2)", borderRadius:10, color:"#c0290e", fontSize:"0.82rem", marginBottom:"0.75rem" },
+  okWrap:      { maxWidth:480, width:"100%", margin:"0 auto", padding:"clamp(2rem,8vw,4rem) clamp(14px,4vw,24px) 80px", display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center", boxSizing:"border-box" },
+  okCircle:    { width:72, height:72, borderRadius:"50%", background:"#1a1611", display:"flex", alignItems:"center", justifyContent:"center", marginBottom:20 },
+  okTitle:     { fontFamily:"'Syne', sans-serif", fontSize:"clamp(1.4rem,5vw,1.8rem)", fontWeight:800, color:"#1a1611", marginBottom:8 },
+  okSub:       { fontSize:"0.85rem", color:"#9a9080", lineHeight:1.6, maxWidth:300, marginBottom:24 },
+  okCard:      { background:"#EDE5D0", border:"1px solid #D4CBB8", borderRadius:16, padding:"0.5rem 1.25rem", width:"100%", marginBottom:24 },
 };
