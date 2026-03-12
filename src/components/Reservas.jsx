@@ -2,7 +2,18 @@ import React, { useState, useEffect, useRef } from "react";
 import supabase from "../lib/supabase";
 
 const WHATSAPP_NUMBER = "56951569704";
-const MAX_ASIENTOS    = 12;
+const MAX_ASIENTOS    = 10;
+const PAX_COMPARTIDO  = 10;
+const MARGEN_COMP     = 1.25; // compartido lleno = van × 1.25
+
+// Precio base para rutas ≤ 40 km desde Temuco
+const PRECIO_VAN_BASE = 40000;
+const PRECIO_KM_VAN   = 1000; // $1.000/km van privada para rutas dinámicas
+const PRECIO_MIN_VAN  = 40000;
+
+// Deriva precio por pax compartido desde precio van
+const paxDesdeVan = (precioVan) =>
+  Math.round((precioVan * MARGEN_COMP) / PAX_COMPARTIDO / 500) * 500;
 
 // ── Hook: sesión y perfil real desde Supabase Auth ────────────────────────────
 function useUsuario() {
@@ -79,13 +90,6 @@ const DESTINOS_POR_ORIGEN = {
     { id: "pucon",      label: "Pucón",      emoji: "🏔️", sub: "Centro ciudad" },
     { id: "villarrica", label: "Villarrica", emoji: "🌋", sub: "Centro ciudad" },
   ],
-};
-
-const PRECIOS = {
-  "pucon-aeropuerto":      { persona: 15000, van: 120000, km: "95 km",  duracion: "1h 30min" },
-  "villarrica-aeropuerto": { persona: 12000, van: 100000, km: "80 km",  duracion: "1h 15min" },
-  "aeropuerto-pucon":      { persona: 15000, van: 120000, km: "95 km",  duracion: "1h 30min" },
-  "aeropuerto-villarrica": { persona: 12000, van: 100000, km: "80 km",  duracion: "1h 15min" },
 };
 
 const RUTA_NOMBRE = {
@@ -229,28 +233,75 @@ async function contarAsientosOcupados(rutaKey, fecha) {
 }
 
 // ── Tarifas ───────────────────────────────────────────────────────────────────
-const PRECIO_KM        = 800;
-const PRECIO_MIN_COMP  = 5000;
-const PRECIO_MIN_VAN   = 50000;
-
+// Coordenadas de referencia
 const ZONAS = [
   { id:"aeropuerto", lat:-38.9258, lng:-72.6372, radio:8  },
   { id:"temuco",     lat:-38.7359, lng:-72.5904, radio:12 },
   { id:"pucon",      lat:-39.2724, lng:-71.9766, radio:10 },
   { id:"villarrica", lat:-39.2833, lng:-72.2333, radio:10 },
+  { id:"freire",     lat:-38.9583, lng:-72.6333, radio:8  },
+  { id:"gorbea",     lat:-39.0950, lng:-72.6783, radio:8  },
+  { id:"victoria",   lat:-38.2317, lng:-72.3317, radio:8  },
+  { id:"loncoche",   lat:-39.3667, lng:-72.6333, radio:8  },
+  { id:"pitrufquen", lat:-38.9833, lng:-72.6500, radio:8  },
 ];
 
+// Tarifas fijas: van = precio total de la van privada
+// persona = paxDesdeVan(van) → lleno × 10 pax = van × 1.25
 const TARIFAS_FIJAS = {
-  "temuco-aeropuerto":     { persona: 5000,  van: 50000  },
-  "aeropuerto-temuco":     { persona: 5000,  van: 50000  },
-  "aeropuerto-pucon":      { persona: 10000, van: 100000 },
-  "pucon-aeropuerto":      { persona: 10000, van: 100000 },
-  "aeropuerto-villarrica": { persona: 10000, van: 100000 },
-  "villarrica-aeropuerto": { persona: 10000, van: 100000 },
-  "temuco-pucon":          { persona: 10000, van: 100000 },
-  "pucon-temuco":          { persona: 10000, van: 100000 },
-  "temuco-villarrica":     { persona: 10000, van: 100000 },
-  "villarrica-temuco":     { persona: 10000, van: 100000 },
+  // Temuco / Aeropuerto (radio ~10 km, base mínima)
+  "temuco-aeropuerto":     { van: 40000, persona: paxDesdeVan(40000) },  // pax: $5.000
+  "aeropuerto-temuco":     { van: 40000, persona: paxDesdeVan(40000) },
+
+  // Pucón ↔ Aeropuerto (~95 km)
+  "aeropuerto-pucon":      { van: 95000,  persona: paxDesdeVan(95000)  }, // pax: $12.000
+  "pucon-aeropuerto":      { van: 95000,  persona: paxDesdeVan(95000)  },
+
+  // Villarrica ↔ Aeropuerto (~80 km)
+  "aeropuerto-villarrica": { van: 80000,  persona: paxDesdeVan(80000)  }, // pax: $10.000
+  "villarrica-aeropuerto": { van: 80000,  persona: paxDesdeVan(80000)  },
+
+  // Pucón ↔ Villarrica (~25 km)
+  "pucon-villarrica":      { van: 40000,  persona: paxDesdeVan(40000)  }, // pax: $5.000
+  "villarrica-pucon":      { van: 40000,  persona: paxDesdeVan(40000)  },
+
+  // Temuco ↔ Pucón (~95 km)
+  "temuco-pucon":          { van: 95000,  persona: paxDesdeVan(95000)  }, // pax: $12.000
+  "pucon-temuco":          { van: 95000,  persona: paxDesdeVan(95000)  },
+
+  // Temuco ↔ Villarrica (~80 km)
+  "temuco-villarrica":     { van: 80000,  persona: paxDesdeVan(80000)  }, // pax: $10.000
+  "villarrica-temuco":     { van: 80000,  persona: paxDesdeVan(80000)  },
+
+  // Freire ↔ Temuco / Aeropuerto (~45 km)
+  "temuco-freire":         { van: 45000,  persona: paxDesdeVan(45000)  }, // pax: $5.500
+  "freire-temuco":         { van: 45000,  persona: paxDesdeVan(45000)  },
+  "aeropuerto-freire":     { van: 50000,  persona: paxDesdeVan(50000)  }, // pax: $6.500
+  "freire-aeropuerto":     { van: 50000,  persona: paxDesdeVan(50000)  },
+
+  // Gorbea ↔ Temuco / Aeropuerto (~60 km)
+  "temuco-gorbea":         { van: 60000,  persona: paxDesdeVan(60000)  }, // pax: $7.500
+  "gorbea-temuco":         { van: 60000,  persona: paxDesdeVan(60000)  },
+  "aeropuerto-gorbea":     { van: 65000,  persona: paxDesdeVan(65000)  }, // pax: $8.000
+  "gorbea-aeropuerto":     { van: 65000,  persona: paxDesdeVan(65000)  },
+
+  // Victoria ↔ Temuco / Aeropuerto (~90 km)
+  "temuco-victoria":       { van: 90000,  persona: paxDesdeVan(90000)  }, // pax: $11.500
+  "victoria-temuco":       { van: 90000,  persona: paxDesdeVan(90000)  },
+  "aeropuerto-victoria":   { van: 95000,  persona: paxDesdeVan(95000)  }, // pax: $12.000
+  "victoria-aeropuerto":   { van: 95000,  persona: paxDesdeVan(95000)  },
+
+  // Loncoche ↔ Temuco / Aeropuerto (~70 km)
+  "temuco-loncoche":       { van: 70000,  persona: paxDesdeVan(70000)  }, // pax: $8.500
+  "loncoche-temuco":       { van: 70000,  persona: paxDesdeVan(70000)  },
+  "aeropuerto-loncoche":   { van: 75000,  persona: paxDesdeVan(75000)  }, // pax: $9.500
+  "loncoche-aeropuerto":   { van: 75000,  persona: paxDesdeVan(75000)  },
+
+  // Pitrufquén ↔ Temuco / Aeropuerto (~35 km)
+  "temuco-pitrufquen":     { van: 40000,  persona: paxDesdeVan(40000)  }, // pax: $5.000
+  "pitrufquen-temuco":     { van: 40000,  persona: paxDesdeVan(40000)  },
+  "aeropuerto-pitrufquen": { van: 42000,  persona: paxDesdeVan(42000)  }, // pax: $5.500
+  "pitrufquen-aeropuerto": { van: 42000,  persona: paxDesdeVan(42000)  },
 };
 
 function detectarZona(lat, lng) {
@@ -271,10 +322,14 @@ function calcularTarifas(distanciaMetros, origenObj, destinoObj) {
   const km = Math.round(distanciaMetros / 1000);
   const idO = origenObj?.id;
   const idD = destinoObj?.id;
+
+  // 1. Tarifa fija si existe
   if (idO && idD && TARIFAS_FIJAS[`${idO}-${idD}`]) {
     const f = TARIFAS_FIJAS[`${idO}-${idD}`];
     return { persona: f.persona, van: f.van, km: `${km} km` };
   }
+
+  // 2. Detección por zona geográfica
   const zonaO = idO || detectarZona(origenObj?.lat, origenObj?.lng);
   const zonaD = idD || detectarZona(destinoObj?.lat, destinoObj?.lng);
   const key   = zonaO && zonaD ? `${zonaO}-${zonaD}` : null;
@@ -282,8 +337,14 @@ function calcularTarifas(distanciaMetros, origenObj, destinoObj) {
     const f = TARIFAS_FIJAS[key];
     return { persona: f.persona, van: f.van, km: `${km} km` };
   }
-  const persona = Math.max(PRECIO_MIN_COMP, Math.round(km * PRECIO_KM / 100) * 100);
-  const van     = Math.max(PRECIO_MIN_VAN,  Math.round(km * PRECIO_KM * 3.5 / 500) * 500);
+
+  // 3. Cálculo dinámico por distancia
+  // ≤ 40 km → tarifa base mínima, luego $1.000/km
+  const van     = km <= 40
+    ? PRECIO_VAN_BASE
+    : Math.max(PRECIO_MIN_VAN, Math.round(km * PRECIO_KM_VAN / 1000) * 1000);
+  const persona = paxDesdeVan(van);
+
   return { persona, van, km: `${km} km` };
 }
 
@@ -343,6 +404,8 @@ export default function Reservas() {
   const destinoId = destino?.id || "custom";
 
   const [fecha,     setFecha]     = useState("");
+  const [hora,      setHora]      = useState("");
+  const [tipoRuta,  setTipoRuta]  = useState("ida"); // "ida" | "ida_vuelta"
   const [pasajeros, setPasajeros] = useState(1);
   const [tipoViaje, setTipoViaje] = useState("");
   const [modoPago,  setModoPago]  = useState("abono");
@@ -402,6 +465,7 @@ export default function Reservas() {
       const tipo      = tipoViaje === "compartido" ? "compartido" : "privado";
       const precioPax = tipoViaje === "compartido" ? rutaData.persona : rutaData.van;
 
+      // 1. Crear o recuperar viaje en BD
       const viajeId = await obtenerOCrearViaje({
         rutaKey, origenId, destinoId, fecha, tipo,
         precio_por_pax: precioPax,
@@ -409,6 +473,7 @@ export default function Reservas() {
         destinoLabel: destino?.label || "",
       });
 
+      // 2. Crear reserva en BD
       const { data, error: dbErr } = await supabase
         .from("reservas")
         .insert([{
@@ -419,22 +484,48 @@ export default function Reservas() {
           num_asientos:  Number(pasajeros),
           estado:        "pendiente",
           origen_reserva:"web",
+          tipo_ruta:     tipoRuta,
           notas: tipoViaje === "van_completa"
-            ? `Pago: ${modoPago === "abono" ? "50% abono ("+precio(aPagar)+")" : "Completo ("+precio(montoTotal)+")"}`
-            : "Reserva compartida",
+            ? `Abono 50%: ${precio(aPagar)} | Total: ${precio(montoTotal)}`
+            : `Compartido · ${tipoRuta === "ida_vuelta" ? "Ida y vuelta" : "Solo ida"}`,
         }])
         .select()
         .single();
 
       if (dbErr) throw new Error("Error al guardar la reserva");
-
       setReservaId(data.id);
+
+      // 3. Van privada → pagar con Flow API
+      if (tipoViaje === "van_completa") {
+        const edgeFn = `https://pyloifgprupypgkhkqmx.supabase.co/functions/v1/flow-payment/create`;
+        const res    = await fetch(edgeFn, {
+          method:  "POST",
+          headers: {
+            "Content-Type":  "application/json",
+            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            reservaId:   data.id,
+            monto:       aPagar,           // 50% del total
+            email:       usuario?.email || "",
+            descripcion: `Araucanía Viajes · ${rutaLabel} · ${fmt(fecha)} ${hora}`,
+          }),
+        });
+
+        const json = await res.json();
+        if (!res.ok || !json.urlPago) throw new Error(json.error || "No se pudo iniciar el pago");
+
+        setEnviando(false);
+        // Redirigir a Flow — al volver, Flow llama el webhook y confirma la reserva
+        window.location.href = json.urlPago;
+        return;
+      }
+
+      // 4. Compartido → sin pago, abrir WhatsApp directamente
       setEnviando(false);
       abrirWhatsApp(data.id);
-      if (tipoViaje === "van_completa") {
-        window.open("https://www.flow.cl/btn.php?token=o6f0a50ad75e315233752a57fb02bdba9453e509", "_blank");
-      }
       ir("ok");
+
     } catch (e) {
       setError(e.message || "Error al procesar. Intenta de nuevo.");
       setEnviando(false);
@@ -445,11 +536,13 @@ export default function Reservas() {
     const msg = encodeURIComponent(
       `🚐 *${tipoViaje === "compartido" ? "Reserva Compartida" : "Van Completa"} - Araucanía Viajes*\n\n` +
       `👤 *${usuario?.nombre}* · ${usuario?.telefono}\n` +
-      `🗺️ ${rutaLabel}\n📅 ${fmt(fecha)}\n👥 ${pasajeros} pasajero(s)\n\n` +
+      `🗺️ ${rutaLabel}\n` +
+      `📅 ${fmt(fecha)} · 🕐 ${hora}\n` +
+      `🎫 ${tipoRuta === "ida_vuelta" ? "Ida y vuelta" : "Solo ida"} · 👥 ${pasajeros} pax\n\n` +
       `💰 Total: ${precio(montoTotal)}\n` +
       (tipoViaje === "compartido"
-        ? `⏳ *Reserva apartada sin costo.*\n`
-        : `💳 Pago: ${precio(aPagar)} (${modoPago === "abono" ? "50% abono" : "completo"})\n`) +
+        ? `⏳ *Sin costo ahora — se confirma al completar cupo.*\n`
+        : `💳 Abono 50%: ${precio(aPagar)} — pagado vía Flow\n`) +
       `🆔 Ref: ${id}`
     );
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, "_blank");
@@ -457,7 +550,7 @@ export default function Reservas() {
 
   const reset = () => {
     setPantalla("inicio"); setOrigen(null); setDestino(null); setFecha("");
-    setPasajeros(1); setTipoViaje(""); setModoPago("abono");
+    setPasajeros(1); setTipoViaje(""); setModoPago("abono"); setHora(""); setTipoRuta("ida");
     setReservaId(null); setError(""); scroll();
   };
 
@@ -506,7 +599,6 @@ export default function Reservas() {
           </div>
           <div style={S.rutaPill} className="fade-in">
             <div style={S.rutaDot}/>
-            {/* ✅ FIX: minWidth:0 permite text-overflow:ellipsis dentro de flex */}
             <div style={{ flex:1, minWidth:0 }}>
               <div style={S.rutaTexto}>{origen?.label}</div>
               <div style={S.rutaLinea}/>
@@ -545,7 +637,6 @@ export default function Reservas() {
           </div>
           <div style={S.rutaPill} className="fade-in">
             <div style={S.rutaDot}/>
-            {/* ✅ FIX: minWidth:0 para que ellipsis funcione en flex */}
             <div style={{ flex:1, minWidth:0 }}>
               <div style={S.rutaTexto}>{origen?.label}</div>
               <div style={S.rutaLinea}/>
@@ -637,7 +728,6 @@ export default function Reservas() {
         </div>
         <div style={S.rutaPill} className="fade-in">
           <div style={S.rutaDot}/>
-          {/* ✅ FIX: minWidth:0 para overflow correcto */}
           <div style={{ flex:1, minWidth:0 }}>
             <div style={S.rutaTexto}>{origen?.label}</div>
             <div style={S.rutaLinea}/>
@@ -655,7 +745,7 @@ export default function Reservas() {
           >
             <div style={S.tarifaIco}><IcoBus size={30} c={tipoViaje==="compartido"?"#1a1611":"#9a9080"}/></div>
             <div style={{ flex:1, textAlign:"left", minWidth:0 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
                 <span style={{ fontWeight:700, fontSize:"1rem", color:"#1a1611" }}>Compartido</span>
                 <span style={S.badge}>Más económico</span>
               </div>
@@ -663,13 +753,13 @@ export default function Reservas() {
                 {asientosLibres} asientos libres · {rutaData?.duracion || ""}
               </div>
             </div>
-            <div style={{ textAlign:"right", flexShrink:0 }}>
-              <div style={{ fontWeight:800, fontSize:"1.25rem", color:"#1a1611" }}>
+            <div style={{ textAlign:"right", flexShrink:0, minWidth:90 }}>
+              <div style={{ fontWeight:800, fontSize:"1.15rem", color:"#1a1611", whiteSpace:"nowrap" }}>
                 {rutaData ? precio(rutaData.persona * pasajeros) : "—"}
               </div>
               {pasajeros > 1
-                ? <div style={{ fontSize:"0.7rem", color:"#9a9080" }}>{precio(rutaData?.persona||0)} × {pasajeros} pax</div>
-                : <div style={{ fontSize:"0.7rem", color:"#9a9080" }}>por pasajero</div>
+                ? <div style={{ fontSize:"0.7rem", color:"#9a9080", whiteSpace:"nowrap" }}>{precio(rutaData?.persona||0)} × {pasajeros} pax</div>
+                : <div style={{ fontSize:"0.7rem", color:"#9a9080", whiteSpace:"nowrap" }}>por pasajero</div>
               }
             </div>
           </button>
@@ -775,15 +865,18 @@ export default function Reservas() {
           />
         </div>
 
-        <div style={{ display:"flex", gap:10, marginTop:10 }} className="fade-in">
+        <div style={{ display:"flex", gap:8, marginTop:10 }} className="fade-in">
           <DatePicker fecha={fecha} setFecha={setFecha} hoy={hoy} fmt={fmt} />
-          <PaxPicker pasajeros={pasajeros} setPasajeros={setPasajeros} max={MAX_ASIENTOS} />
+          <HoraPicker hora={hora} setHora={setHora} />
+        </div>
+        <div style={{ marginTop:8 }} className="fade-in">
+          <TipoRutaPicker tipoRuta={tipoRuta} setTipoRuta={setTipoRuta} />
         </div>
 
         <button
           className="btn-confirmar"
           style={{ marginTop:14 }}
-          disabled={!origen || !destino || !fecha || calculando}
+          disabled={!origen || !destino || !fecha || !hora || calculando}
           onClick={verTarifas}
         >
           {calculando
@@ -795,10 +888,10 @@ export default function Reservas() {
           <p style={S.sectionLabel}>Rutas frecuentes</p>
           <div style={{ display:"flex", flexDirection:"column" }}>
             {[
-              { o: PUNTOS_FRECUENTES[0], d: PUNTOS_FRECUENTES[1], label:"Aeropuerto → Pucón",      meta:"~95 km · desde $10.000/pax · van $100.000" },
-              { o: PUNTOS_FRECUENTES[0], d: PUNTOS_FRECUENTES[2], label:"Aeropuerto → Villarrica", meta:"~80 km · desde $10.000/pax · van $100.000" },
-              { o: PUNTOS_FRECUENTES[1], d: PUNTOS_FRECUENTES[0], label:"Pucón → Aeropuerto",      meta:"~95 km · desde $10.000/pax · van $100.000" },
-              { o: PUNTOS_FRECUENTES[2], d: PUNTOS_FRECUENTES[0], label:"Villarrica → Aeropuerto", meta:"~80 km · desde $10.000/pax · van $100.000" },
+              { o: PUNTOS_FRECUENTES[0], d: PUNTOS_FRECUENTES[1], label:"Aeropuerto → Pucón",      meta:`~95 km · desde ${precio(paxDesdeVan(95000))}/pax · van ${precio(95000)}` },
+              { o: PUNTOS_FRECUENTES[0], d: PUNTOS_FRECUENTES[2], label:"Aeropuerto → Villarrica", meta:`~80 km · desde ${precio(paxDesdeVan(80000))}/pax · van ${precio(80000)}` },
+              { o: PUNTOS_FRECUENTES[1], d: PUNTOS_FRECUENTES[0], label:"Pucón → Aeropuerto",      meta:`~95 km · desde ${precio(paxDesdeVan(95000))}/pax · van ${precio(95000)}` },
+              { o: PUNTOS_FRECUENTES[2], d: PUNTOS_FRECUENTES[0], label:"Villarrica → Aeropuerto", meta:`~80 km · desde ${precio(paxDesdeVan(80000))}/pax · van ${precio(80000)}` },
             ].map((r,i) => (
               <button key={i} className="ruta-row" onClick={() => { setOrigen(r.o); setDestino(r.d); }}>
                 <div style={S.rutaIcoSmall}>{r.o.id==="aeropuerto"?"✈️":r.o.id==="pucon"?"🏔️":"🌋"}</div>
@@ -859,20 +952,75 @@ function DatePicker({ fecha, setFecha, hoy, fmt }) {
   );
 }
 
-// ── PaxPicker ─────────────────────────────────────────────────────────────────
-function PaxPicker({ pasajeros, setPasajeros, max }) {
+// ── HoraPicker ────────────────────────────────────────────────────────────────
+const HORAS = Array.from({ length: 17 }, (_, i) => {
+  const h = i + 6; // 06:00 a 22:00
+  return `${String(h).padStart(2, "0")}:00`;
+});
+
+function HoraPicker({ hora, setHora }) {
+  const selectRef = useRef(null);
   return (
-    <div style={{ ...S.pill, minWidth:120, cursor:"default" }}>
+    <div style={{ ...S.pill, flex:1, cursor:"pointer" }} onClick={() => selectRef.current?.focus()}>
       <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-        <IcoPax size={13} c="#9a9080"/>
-        <span style={{ fontSize:"0.72rem", color:"#9a9080", fontWeight:600, letterSpacing:"0.02em" }}>Pasajeros</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9a9080" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+        </svg>
+        <span style={{ fontSize:"0.72rem", color:"#9a9080", fontWeight:600, letterSpacing:"0.02em" }}>Hora</span>
       </div>
-      <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:2 }}>
-        {/* ✅ FIX: touch target mínimo 44×44px — era 26×26px */}
-        <button className="cnt" onClick={() => setPasajeros(Math.max(1, pasajeros - 1))} style={{ width:44, height:44 }}>−</button>
-        <span style={{ fontWeight:800, fontSize:"1rem", color:"#1a1611", minWidth:18, textAlign:"center" }}>{pasajeros}</span>
-        <button className="cnt" onClick={() => setPasajeros(Math.min(max, pasajeros + 1))} style={{ width:44, height:44 }}>+</button>
+      <div style={{ position:"relative", display:"flex", alignItems:"center" }}>
+        <select
+          ref={selectRef}
+          value={hora}
+          onChange={e => setHora(e.target.value)}
+          style={{
+            ...S.select,
+            fontWeight: hora ? 700 : 400,
+            color: hora ? "#1a1611" : "#9a9080",
+            fontSize:"0.9rem",
+            paddingRight:16,
+          }}
+        >
+          <option value="">Elige hora</option>
+          {HORAS.map(h => <option key={h} value={h}>{h}</option>)}
+        </select>
+        <svg style={{ position:"absolute", right:0, pointerEvents:"none" }} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9a9080" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
       </div>
+    </div>
+  );
+}
+
+// ── TipoRutaPicker ────────────────────────────────────────────────────────────
+function TipoRutaPicker({ tipoRuta, setTipoRuta }) {
+  return (
+    <div style={{ display:"flex", gap:8 }}>
+      {[
+        { id:"ida",        label:"✈️ Solo ida" },
+        { id:"ida_vuelta", label:"🔄 Ida y vuelta" },
+      ].map(op => (
+        <button
+          key={op.id}
+          onClick={() => setTipoRuta(op.id)}
+          style={{
+            flex:1,
+            padding:"10px 14px",
+            borderRadius:12,
+            border: tipoRuta === op.id ? "2px solid #1a1611" : "1.5px solid #D4CBB8",
+            background: tipoRuta === op.id ? "#1a1611" : "#EDE5D0",
+            color: tipoRuta === op.id ? "#F5EDD8" : "#6b5e4e",
+            fontFamily:"'DM Sans', sans-serif",
+            fontSize:"0.85rem",
+            fontWeight: tipoRuta === op.id ? 700 : 500,
+            cursor:"pointer",
+            transition:"all .18s",
+            whiteSpace:"nowrap",
+          }}
+        >
+          {op.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -1084,20 +1232,18 @@ function LugarInput({ placeholder, value, onChange, dotStyle, disabled, historia
 
           {buscando && <span className="btn-spinner" style={{ width:14, height:14, borderWidth:1.5, borderTopColor:"#9a9080", borderColor:"#D4CBB8", flexShrink:0 }}/>}
 
-          {/* ✅ FIX: botón × con área táctil 44×44px — era solo padding "2px 4px" */}
           {value && !buscando && (
             <button
               onMouseDown={e => { e.preventDefault(); onChange(null); setQuery(""); setResultados([]); }}
               style={{
                 background:"none", border:"none", cursor:"pointer",
-                width:44, height:44,                            // ✅ FIX
+                width:44, height:44,
                 display:"flex", alignItems:"center", justifyContent:"center",
                 color:"#C8BEA8", fontSize:"1.1rem", lineHeight:1, flexShrink:0,
               }}
             >×</button>
           )}
 
-          {/* ✅ FIX: botón GPS con área táctil 44×44px */}
           {dotStyle === "origen" && !value && !buscando && (
             <button
               onMouseDown={e => { e.preventDefault(); ubicarme(false); }}
@@ -1105,7 +1251,7 @@ function LugarInput({ placeholder, value, onChange, dotStyle, disabled, historia
               style={{
                 background:"none", border:"none",
                 cursor: geolocando ? "wait" : "pointer",
-                width:44, height:44,                            // ✅ FIX
+                width:44, height:44,
                 display:"flex", alignItems:"center", justifyContent:"center",
                 color: geolocando ? "#C8BEA8" : "#9a9080",
                 transition:"color .2s", flexShrink:0,
@@ -1151,13 +1297,12 @@ function LugarInput({ placeholder, value, onChange, dotStyle, disabled, historia
                       {h.sub && <div style={{ fontSize:"0.72rem", color:"#9a9080", marginTop:1 }}>{h.sub}</div>}
                     </div>
                   </button>
-                  {/* ✅ FIX: botón eliminar historial con área táctil 44×44px */}
                   <button
                     onMouseDown={e => { e.preventDefault(); e.stopPropagation(); onEliminarHistorial?.(h.label); }}
                     title="Eliminar del historial"
                     style={{
                       background:"none", border:"none", cursor:"pointer",
-                      width:44, height:44,                        // ✅ FIX
+                      width:44, height:44,
                       display:"flex", alignItems:"center", justifyContent:"center",
                       color:"#C8BEA8", fontSize:"1rem", flexShrink:0,
                     }}
@@ -1290,8 +1435,6 @@ const css = `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600;700;800&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
   input, select, textarea { font-size: 16px !important; }
-
-  /* ✅ FIX: evitar scroll horizontal global */
   html, body { overflow-x: hidden; max-width: 100%; }
 
   @media (max-width: 380px) {
@@ -1300,7 +1443,6 @@ const css = `
     .tarifa-card   { padding: 0.85rem 0.9rem !important; gap: 10px !important; }
     .ruta-row      { padding: 11px 4px !important; }
     .pago-opt      { padding: 0.75rem 0.8rem !important; }
-    /* ✅ FIX 375px: reducir gap del PaxPicker para que quepa */
     .cnt           { width: 40px !important; height: 40px !important; }
   }
 
@@ -1309,10 +1451,8 @@ const css = `
   select { appearance: none; -webkit-appearance: none; }
   select option { background: #EDE5D0; color: #1a1611; }
 
-  /* ✅ FIX: btn-back era 36×36px, ahora 44×44px (mínimo táctil) */
   .btn-back { width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid #D4CBB8; background: #EDE5D0; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background .15s; }
   .btn-back:hover { background: #D4CBB8; }
-
   .btn-confirmar { width: 100%; padding: clamp(14px, 4vw, 17px); background: #1a1611; color: #F5EDD8; border: none; border-radius: 14px; font-size: clamp(0.9rem, 4vw, 1rem); font-weight: 800; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all .2s; box-shadow: 0 4px 20px rgba(26,22,17,.2); letter-spacing: -0.01em; }
   .btn-confirmar:hover:not(:disabled) { background: #2d2820; transform: translateY(-1px); box-shadow: 0 6px 28px rgba(26,22,17,.28); }
   .btn-confirmar:disabled { background: #D4CBB8; color: #9a9080; cursor: not-allowed; box-shadow: none; }
@@ -1320,11 +1460,8 @@ const css = `
   .btn-wa:hover { background: #16a34a; }
   .btn-ghost { width: 100%; padding: 14px; background: transparent; color: #9a9080; border: 1.5px solid #D4CBB8; border-radius: 14px; font-size: 0.88rem; font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all .2s; }
   .btn-ghost:hover { border-color: #9a9080; color: #3d3629; }
-
-  /* ✅ FIX: .cnt era 26×26px — ahora mínimo 44×44px táctil */
   .cnt { border-radius: 50%; border: 1.5px solid #C8BEA8; background: transparent; color: #1a1611; font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .15s; font-family: inherit; }
   .cnt:hover { background: #D4CBB8; }
-
   .tarifa-card { display: flex; align-items: center; gap: 14px; padding: 1.1rem 1.15rem; border-radius: 16px; border: 1.5px solid #D4CBB8; background: #EDE5D0; cursor: pointer; transition: all .2s; font-family: 'DM Sans', sans-serif; text-align: left; width: 100%; }
   .tarifa-card:hover { border-color: #9a9080; background: #E8E0D0; }
   .tarifa-on { border-color: #1a1611 !important; background: #F5EDD8 !important; box-shadow: 0 0 0 2px #1a1611; }
@@ -1341,27 +1478,26 @@ const css = `
   .btn-mis-reservas { width: 100%; padding: 13px; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; background: transparent; color: #1a1611; border: 1.5px solid #1a1611; border-radius: 14px; font-size: 0.88rem; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all .2s; }
   .btn-mis-reservas:hover { background: #1a1611; color: #fff; }
   .btn-spinner { width: 17px; height: 17px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; animation: spin .7s linear infinite; display: inline-block; flex-shrink: 0; }
-  .drop-item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 16px; background: transparent; border: none; cursor: pointer; transition: background .15s; font-family: 'DM Sans', sans-serif; min-height: 44px; /* ✅ FIX: touch target mínimo */ }
+  .drop-item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 16px; background: transparent; border: none; cursor: pointer; transition: background .15s; font-family: 'DM Sans', sans-serif; min-height: 44px; }
   .drop-item:hover { background: #FAF7F2; }
   .drop-item:last-of-type { margin-bottom: 4px; }
 `;
 
 const S = {
-  root:        { background:"#ffffff", minHeight:"100vh", fontFamily:"'DM Sans', sans-serif", overflowX:"hidden" /* ✅ FIX */ },
+  root:        { background:"#ffffff", minHeight:"100vh", fontFamily:"'DM Sans', sans-serif", overflowX:"hidden" },
   wrap:        { maxWidth:480, width:"100%", margin:"0 auto", padding:"0 clamp(14px,4vw,24px) 80px", boxSizing:"border-box" },
   saludoRow:   { display:"flex", justifyContent:"space-between", alignItems:"flex-start", paddingTop:"clamp(1.25rem,5vw,2.5rem)", paddingBottom:"1.25rem" },
   saludoSub:   { fontSize:"0.85rem", color:"#9a9080", marginBottom:4, fontWeight:500 },
   saludoTitle: { fontFamily:"'Syne', sans-serif", fontSize:"clamp(1.5rem,6vw,2.2rem)", fontWeight:800, color:"#1a1611", lineHeight:1.12 },
   searchBoxSingle: { background:"#EDE5D0", border:"1px solid #D4CBB8", borderRadius:16, boxShadow:"0 2px 12px rgba(26,22,17,.06)", transition:"border-color .2s, box-shadow .2s" },
   arrowSep:    { display:"flex", alignItems:"center", justifyContent:"center", height:22, position:"relative" },
-  // ✅ FIX: swapBtn era 30×30px, ahora 44×44px touch target
   swapBtn:     { width:44, height:44, borderRadius:"50%", background:"#fff", border:"1.5px solid #D4CBB8", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"#9a9080", transition:"all .2s", boxShadow:"0 1px 6px rgba(26,22,17,.08)", zIndex:1 },
   distBadge:   { display:"flex", alignItems:"center", gap:6, background:"#F0EBE0", border:"1px solid #D4CBB8", borderRadius:99, padding:"5px 14px", fontSize:"0.75rem", fontWeight:600, color:"#6b5e4e", marginTop:8, alignSelf:"flex-start" },
-  dropdown:    { position:"absolute", top:"calc(100% + 6px)", left:0, right:0, background:"#fff", border:"1px solid #E0D8CC", borderRadius:14, boxShadow:"0 8px 32px rgba(26,22,17,.14)", zIndex:9999, overflow:"hidden" /* ✅ FIX: era "visible", causaba desborde */ },
+  dropdown:    { position:"absolute", top:"calc(100% + 6px)", left:0, right:0, background:"#fff", border:"1px solid #E0D8CC", borderRadius:14, boxShadow:"0 8px 32px rgba(26,22,17,.14)", zIndex:9999, overflow:"hidden" },
   dropHeader:  { padding:"8px 16px 4px", fontSize:"0.67rem", fontWeight:700, color:"#C8BEA8", textTransform:"uppercase", letterSpacing:"0.07em" },
   dropIcon:    { width:34, height:34, borderRadius:10, background:"#F0EBE0", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"1rem", flexShrink:0 },
   dropAviso:   { display:"flex", alignItems:"flex-start", gap:8, padding:"10px 16px", margin:"4px 8px 8px", background:"#FDF9F3", border:"1px solid #E8E0D0", borderRadius:10, fontSize:"0.72rem", color:"#9a9080", lineHeight:1.5 },
-  searchRow:   { display:"flex", alignItems:"center", gap:10, padding:"10px 14px" /* ✅ FIX: reducido para acomodar botones 44px */ },
+  searchRow:   { display:"flex", alignItems:"center", gap:10, padding:"10px 14px" },
   select:      { flex:1, background:"transparent", border:"none", outline:"none", fontSize:"0.95rem", fontFamily:"'DM Sans', sans-serif", cursor:"pointer", fontWeight:500 },
   dotOrigen:   { width:10, height:10, borderRadius:"50%", border:"2.5px solid #1a1611", flexShrink:0 },
   dotDestino:  { width:10, height:10, borderRadius:2, background:"#1a1611", flexShrink:0 },
@@ -1369,14 +1505,13 @@ const S = {
   rutaIcoSmall:{ width:38, height:38, borderRadius:10, background:"#E8E0D0", border:"1px solid #D4CBB8", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"1.1rem", flexShrink:0 },
   topBar:      { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"1.5rem 0 1rem" },
   topTitle:    { fontFamily:"'Syne', sans-serif", fontSize:"clamp(0.9rem,4vw,1.05rem)", fontWeight:800, color:"#1a1611" },
-  rutaPill:    { background:"#EDE5D0", border:"1px solid #D4CBB8", borderRadius:16, padding:"14px 16px", display:"flex", alignItems:"center", gap:12, marginBottom:16, boxShadow:"0 2px 12px rgba(26,22,17,.06)", overflow:"hidden" /* ✅ FIX */ },
+  rutaPill:    { background:"#EDE5D0", border:"1px solid #D4CBB8", borderRadius:16, padding:"14px 16px", display:"flex", alignItems:"center", gap:12, marginBottom:16, boxShadow:"0 2px 12px rgba(26,22,17,.06)", overflow:"hidden" },
   rutaDot:     { display:"flex", flexDirection:"column", alignItems:"center", gap:2, flexShrink:0 },
-  // ✅ FIX: overflow + ellipsis para textos largos de origen/destino
   rutaTexto:   { fontSize:"0.88rem", fontWeight:700, color:"#1a1611", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" },
   rutaLinea:   { height:14, width:1, background:"#D4CBB8", margin:"4px 0" },
   pillMeta:    { fontSize:"0.72rem", color:"#9a9080", lineHeight:1.8, whiteSpace:"nowrap" },
   tarifaIco:   { width:52, height:52, borderRadius:14, background:"#E8E0D0", border:"1px solid #D4CBB8", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 },
-  badge:       { fontSize:"0.65rem", background:"#1a1611", color:"#F5EDD8", padding:"2px 8px", borderRadius:99, fontWeight:700, whiteSpace:"nowrap" /* ✅ FIX */ },
+  badge:       { fontSize:"0.65rem", background:"#1a1611", color:"#F5EDD8", padding:"2px 8px", borderRadius:99, fontWeight:700, whiteSpace:"nowrap" },
   section:     { padding:"0.5rem 0 1rem", borderBottom:"1px solid #E8E0D0", marginBottom:"1rem" },
   sectionLabel:{ fontSize:"0.72rem", fontWeight:700, color:"#9a9080", letterSpacing:"0.06em", marginBottom:"0.6rem" },
   aviso:       { display:"flex", gap:10, background:"rgba(245,193,7,0.1)", border:"1px solid rgba(245,193,7,0.3)", borderRadius:12, padding:"0.9rem", marginBottom:"1rem" },
