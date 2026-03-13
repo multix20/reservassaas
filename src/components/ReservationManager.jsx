@@ -105,6 +105,7 @@ const fmtFechaCorta = (d) => d ? new Date(d+"T12:00:00").toLocaleDateString("es-
 
 const DIAS_SEMANA = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const MESES_LABEL = ["","Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
 const ESTADO_CFG = {
   en_espera:         { label:"En espera",           color:"#9a9080", bg:"#f5f0e8", dot:"#9a9080" },
@@ -132,7 +133,6 @@ const css = `
 
   .rm-main{padding:24px 28px;max-width:1180px;margin:0 auto}
 
-  /* ── KPI Cards ── */
   .rm-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:4px}
   .rm-kpi{background:#f2f2f2;border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:3px}
   .rm-kpi-num{font-size:1.75rem;font-weight:700;color:#1a1a1a;font-family:'Playfair Display',serif;line-height:1;letter-spacing:-.02em}
@@ -142,7 +142,6 @@ const css = `
   .rm-kpi-label{font-size:.72rem;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.07em;margin-top:6px}
   .rm-kpi-sub{font-size:.67rem;color:#aaa;font-weight:400}
 
-  /* ── Calendario ── */
   .rm-cal-wrap{background:#fff;border-radius:18px;border:1.5px solid #D4CBB8;overflow:hidden;box-shadow:0 2px 16px rgba(26,22,17,.06)}
   .rm-cal-hdr{background:#2d2820;padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
   .rm-cal-mes{font-family:'Playfair Display',serif;font-size:1.2rem;color:#EDE5D0;font-weight:500}
@@ -153,6 +152,8 @@ const css = `
   .rm-cal-day{min-height:90px;padding:8px;border-right:1px solid #EDE5D0;border-bottom:1px solid #EDE5D0;position:relative;transition:background .15s;vertical-align:top}
   .rm-cal-day:nth-child(7n){border-right:none}
   .rm-cal-day.vacio{background:#faf8f5}
+  .rm-cal-day.bloqueado{background:#fef2f2;cursor:not-allowed}
+  .rm-cal-day.bloqueado .rm-dia-num{text-decoration:line-through;color:#dc2626}
   .rm-cal-day.hoy .rm-dia-num{background:#2d2820;color:#EDE5D0;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center}
   .rm-cal-day.tiene-viajes{cursor:pointer}
   .rm-cal-day.tiene-viajes:hover{background:#f5f0e8}
@@ -163,9 +164,9 @@ const css = `
   .rm-dia-dot{display:flex;align-items:center;gap:4px;padding:2px 5px;border-radius:5px;font-size:.62rem;font-weight:600;white-space:nowrap;overflow:hidden}
   .rm-dia-dot.compartido{background:#dbeafe;color:#1e40af}
   .rm-dia-dot.privado{background:#fff3e0;color:#b45309}
+  .rm-dia-dot.bloq-tag{background:#fecaca;color:#991b1b;font-size:.58rem}
   .rm-dia-total{margin-top:4px;font-size:.62rem;color:#9a9080;font-weight:500}
 
-  /* ── Modal día ── */
   .rm-ov{position:fixed;inset:0;background:rgba(26,22,17,.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
   .rm-modal{background:#fff;border-radius:20px;width:100%;max-width:640px;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.28)}
   .rm-modal-hdr{background:#2d2820;padding:20px 24px;border-radius:20px 20px 0 0;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1}
@@ -189,7 +190,6 @@ const css = `
   .rm-pax-actions{display:flex;gap:5px;flex-shrink:0}
   .rm-modal-empty{text-align:center;padding:32px 20px;color:#9a9080;font-size:.85rem}
 
-  /* ── Filtros / Lista ── */
   .rm-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
   .rm-stat{background:#fff;border-radius:14px;padding:18px 20px;border:1.5px solid #D4CBB8;position:relative;overflow:hidden}
   .rm-stat::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
@@ -291,8 +291,6 @@ const css = `
   .rm-success h3{font-family:'Playfair Display',serif;font-size:1.2rem;color:#2d2820;margin-bottom:8px}
   .rm-success p{font-size:.85rem;color:#9a9080;margin-bottom:20px}
 
-  /* ── Alerta sync ── */
-
   @media(max-width:768px){
     .rm-kpi-grid,.rm-stats{grid-template-columns:repeat(2,1fr)}
     .rm-main{padding:16px}
@@ -304,17 +302,97 @@ const css = `
   }
 `;
 
-// ─── Componente Calendario Dashboard ────────────────────────
-function CalendarioDashboard({ viajes, onDiaClick }) {
+// ─── BloqueoPanel ─────────────────────────────────────────────
+function BloqueoPanel({ bloqueos, onBloqueoDia, onBloqueoMes, onEliminar }) {
+  const [tipo,   setTipo]   = useState("dia");
+  const [fecha,  setFecha]  = useState("");
+  const [mes,    setMes]    = useState("");
+  const [anio,   setAnio]   = useState(new Date().getFullYear());
+  const [motivo, setMotivo] = useState("");
+
+  const handleAgregar = () => {
+    if (tipo === "dia") onBloqueoDia(fecha, motivo);
+    else onBloqueoMes(mes, anio, motivo);
+    setFecha(""); setMes(""); setMotivo("");
+  };
+
+  return (
+    <div className="rm-form-wrap">
+      <div className="rm-form-title">🔒 Bloquear fechas</div>
+      <div className="rm-form-sub">Los días o meses bloqueados no permitirán nuevas reservas desde la web.</div>
+
+      <div className="rm-form-section">Tipo de bloqueo</div>
+      <div style={{ display:"flex", gap:10, marginBottom:18 }}>
+        <button className={`rm-fbtn ${tipo==="dia"?"on":""}`} onClick={()=>setTipo("dia")}>📅 Por día</button>
+        <button className={`rm-fbtn ${tipo==="mes"?"on":""}`} onClick={()=>setTipo("mes")}>🗓️ Por mes completo</button>
+      </div>
+
+      {tipo === "dia" ? (
+        <div className="rm-grid">
+          <div className="rm-field">
+            <label>Fecha a bloquear</label>
+            <input type="date" value={fecha} onChange={e=>setFecha(e.target.value)}/>
+          </div>
+          <div className="rm-field">
+            <label>Motivo (opcional)</label>
+            <input placeholder="Ej: Feriado, mantención…" value={motivo} onChange={e=>setMotivo(e.target.value)}/>
+          </div>
+        </div>
+      ) : (
+        <div className="rm-grid">
+          <div className="rm-field">
+            <label>Mes</label>
+            <select value={mes} onChange={e=>setMes(e.target.value)}>
+              <option value="">Selecciona…</option>
+              {MESES_LABEL.slice(1).map((m,i) => <option key={i+1} value={i+1}>{m}</option>)}
+            </select>
+          </div>
+          <div className="rm-field">
+            <label>Año</label>
+            <input type="number" min="2025" max="2030" value={anio} onChange={e=>setAnio(e.target.value)}/>
+          </div>
+          <div className="rm-field rm-col2">
+            <label>Motivo (opcional)</label>
+            <input placeholder="Ej: Temporada baja, sin conductor…" value={motivo} onChange={e=>setMotivo(e.target.value)}/>
+          </div>
+        </div>
+      )}
+
+      <div className="rm-form-actions">
+        <button className="rm-btn-primary" onClick={handleAgregar}>🔒 Agregar bloqueo</button>
+      </div>
+
+      <div className="rm-form-section" style={{marginTop:28}}>
+        Bloqueos activos ({bloqueos.length})
+      </div>
+      {bloqueos.length === 0 && <div className="rm-empty">Sin bloqueos activos.</div>}
+      <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+        {bloqueos.map(b => (
+          <div key={b.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 14px", background:"#fef2f2", border:"1.5px solid #fca5a5", borderRadius:12 }}>
+            <div>
+              <div style={{ fontSize:".85rem", fontWeight:600, color:"#991b1b" }}>
+                {b.tipo==="dia" ? `📅 ${b.fecha}` : `🗓️ ${MESES_LABEL[b.mes]} ${b.anio}`}
+              </div>
+              {b.motivo && <div style={{ fontSize:".72rem", color:"#9a9080", marginTop:2 }}>{b.motivo}</div>}
+            </div>
+            <button className="rm-btn red" onClick={()=>onEliminar(b.id)}>✕ Eliminar</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Calendario Dashboard ─────────────────────────────────────
+function CalendarioDashboard({ viajes, bloqueos, onDiaClick }) {
   const hoy = new Date();
   const [mes, setMes] = useState(hoy.getMonth());
   const [año, setAnio] = useState(hoy.getFullYear());
 
-  const primerDia   = new Date(año, mes, 1).getDay();       // 0=Dom
-  const diasEnMes   = new Date(año, mes + 1, 0).getDate();
+  const primerDia    = new Date(año, mes, 1).getDay();
+  const diasEnMes    = new Date(año, mes + 1, 0).getDate();
   const diasAnterior = new Date(año, mes, 0).getDate();
 
-  // Agrupar viajes activos por fecha (excluir cancelados)
   const viajesPorFecha = viajes
     .filter(v => v.estado !== "cancelado")
     .reduce((acc, v) => {
@@ -322,6 +400,14 @@ function CalendarioDashboard({ viajes, onDiaClick }) {
       acc[v.fecha].push(v);
       return acc;
     }, {});
+
+  const esBloqueado = (fechaStr) => {
+    const f = new Date(fechaStr + "T12:00:00");
+    return bloqueos.some(b =>
+      (b.tipo === "dia" && b.fecha === fechaStr) ||
+      (b.tipo === "mes" && b.mes === f.getMonth()+1 && b.anio === f.getFullYear())
+    );
+  };
 
   const navMes = (delta) => {
     let nm = mes + delta, na = año;
@@ -331,43 +417,32 @@ function CalendarioDashboard({ viajes, onDiaClick }) {
   };
 
   const celdas = [];
-
-  // Días del mes anterior
   for (let i = primerDia - 1; i >= 0; i--) {
     celdas.push({ dia: diasAnterior - i, otroMes: true, fecha: null });
   }
-  // Días del mes actual
   for (let d = 1; d <= diasEnMes; d++) {
     const mm  = String(mes + 1).padStart(2,"0");
     const dd  = String(d).padStart(2,"0");
     const key = `${año}-${mm}-${dd}`;
     celdas.push({ dia: d, otroMes: false, fecha: key, viajes: viajesPorFecha[key] || [] });
   }
-  // Completar hasta múltiplo de 7
   const resto = 7 - (celdas.length % 7);
   if (resto < 7) {
-    for (let i = 1; i <= resto; i++) {
-      celdas.push({ dia: i, otroMes: true, fecha: null });
-    }
+    for (let i = 1; i <= resto; i++) celdas.push({ dia: i, otroMes: true, fecha: null });
   }
 
   const todayKey = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,"0")}-${String(hoy.getDate()).padStart(2,"0")}`;
 
   return (
     <div className="rm-cal-wrap">
-      {/* Header mes */}
       <div className="rm-cal-hdr">
         <button className="rm-cal-nav" onClick={() => navMes(-1)}>◀</button>
         <span className="rm-cal-mes">{MESES[mes]} {año}</span>
         <button className="rm-cal-nav" onClick={() => navMes(1)}>▶</button>
       </div>
-
-      {/* Días de la semana */}
       <div className="rm-cal-grid">
         {DIAS_SEMANA.map(d => <div key={d} className="rm-cal-dow">{d}</div>)}
       </div>
-
-      {/* Celdas */}
       <div className="rm-cal-grid">
         {celdas.map((celda, i) => {
           if (celda.otroMes) return (
@@ -376,23 +451,28 @@ function CalendarioDashboard({ viajes, onDiaClick }) {
             </div>
           );
 
-          const tieneViajes = celda.viajes?.length > 0;
-          const esHoy       = celda.fecha === todayKey;
-          const compartidos = celda.viajes?.filter(v => v.tipo === "compartido") || [];
-          const privados    = celda.viajes?.filter(v => v.tipo === "privado")    || [];
-          const totalPax    = celda.viajes?.reduce((acc, v) =>
-            acc + (v.reservas?.filter(r => r.estado !== "cancelada").reduce((s,r) => s + (r.num_asientos||1), 0) || 0), 0) || 0;
-          const totalMonto  = celda.viajes?.reduce((acc, v) =>
+          const tieneViajes  = celda.viajes?.length > 0;
+          const esHoy        = celda.fecha === todayKey;
+          const bloqueado    = esBloqueado(celda.fecha);
+          const compartidos  = celda.viajes?.filter(v => v.tipo === "compartido") || [];
+          const privados     = celda.viajes?.filter(v => v.tipo === "privado")    || [];
+          const totalMonto   = celda.viajes?.reduce((acc, v) =>
             acc + (v.reservas?.flatMap(r=>r.pagos||[]).filter(p=>p.estado==="completado").reduce((s,p)=>s+p.monto,0)||0), 0) || 0;
+
+          let clases = "rm-cal-day";
+          if (bloqueado) clases += " bloqueado";
+          else if (tieneViajes) clases += " tiene-viajes";
+          if (esHoy) clases += " hoy";
 
           return (
             <div
               key={i}
-              className={`rm-cal-day ${tieneViajes?"tiene-viajes":""} ${esHoy?"hoy":""}`}
-              onClick={() => tieneViajes && onDiaClick(celda.fecha, celda.viajes)}
+              className={clases}
+              onClick={() => !bloqueado && tieneViajes && onDiaClick(celda.fecha, celda.viajes)}
             >
-              <div className={`rm-dia-num${esHoy?"":" "}`}>{celda.dia}</div>
-              {tieneViajes && (
+              <div className="rm-dia-num">{celda.dia}</div>
+              {bloqueado && <div className="rm-dia-dot bloq-tag">🔒 Bloqueado</div>}
+              {!bloqueado && tieneViajes && (
                 <div className="rm-dia-dots">
                   {compartidos.length > 0 && (
                     <div className="rm-dia-dot compartido">
@@ -419,8 +499,8 @@ function CalendarioDashboard({ viajes, onDiaClick }) {
   );
 }
 
-// ─── Modal de día ─────────────────────────────────────────────
-function ModalDia({ fecha, viajes, onClose, onConfirmarPasajero, onCancelarPasajero, onMarcarPagado, onCancelarViaje, showToast }) {
+// ─── Modal día ────────────────────────────────────────────────
+function ModalDia({ fecha, viajes, onClose, onConfirmarPasajero, onCancelarPasajero, onMarcarPagado, onCancelarViaje }) {
   if (!fecha) return null;
 
   const compartidos = viajes.filter(v => v.tipo === "compartido");
@@ -429,8 +509,6 @@ function ModalDia({ fecha, viajes, onClose, onConfirmarPasajero, onCancelarPasaj
   const SeccionViaje = ({ viaje }) => {
     const cfg = ESTADO_CFG[viaje.estado] || ESTADO_CFG.en_espera;
     const reservasActivas = viaje.reservas?.filter(r => r.estado !== "cancelada") || [];
-    const totalPax = reservasActivas.reduce((s,r) => s+(r.num_asientos||1),0);
-    const recaudado = viaje.reservas?.flatMap(r=>r.pagos||[]).filter(p=>p.estado==="completado").reduce((s,p)=>s+p.monto,0)||0;
 
     return (
       <div className="rm-viaje-card">
@@ -440,27 +518,19 @@ function ModalDia({ fecha, viajes, onClose, onConfirmarPasajero, onCancelarPasaj
             <div className="rm-viaje-card-meta">
               {viaje.hora_salida?.slice(0,5)} · {fmtPeso(viaje.precio_por_pax)}/pax
               {viaje.conductor ? ` · 👤 ${viaje.conductor}` : ""}
-              {viaje.vehiculo  ? ` · ${viaje.vehiculo}` : ""}
             </div>
           </div>
           <div className="rm-viaje-card-r">
             <span className="rm-estado" style={{color:cfg.color,background:cfg.bg}}>
               <span className="rm-dot" style={{background:cfg.dot}}/>{cfg.label}
             </span>
-            <div style={{fontSize:".7rem",color:"#9a9080",marginTop:4}}>
-              {totalPax} pax · {fmtPeso(recaudado)} cobrado
-            </div>
           </div>
         </div>
-
         {reservasActivas.length === 0 ? (
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 4px"}}>
             <span style={{fontSize:".78rem",color:"#9a9080"}}>Sin pasajeros activos</span>
             {viaje.estado !== "cancelado" && (
-              <button className="rm-btn red" style={{fontSize:".72rem",padding:"5px 11px"}}
-                onClick={()=>onCancelarViaje(viaje)}>
-                Cancelar viaje
-              </button>
+              <button className="rm-btn red" onClick={()=>onCancelarViaje(viaje)}>Cancelar viaje</button>
             )}
           </div>
         ) : (
@@ -472,7 +542,7 @@ function ModalDia({ fecha, viajes, onClose, onConfirmarPasajero, onCancelarPasaj
                   <div className="rm-pax-info">
                     <div className="rm-pax-name">{r.nombre}</div>
                     <div className="rm-pax-sub">
-                      {r.num_asientos} asiento(s) · {r.telefono} · {" "}
+                      {r.num_asientos} asiento(s) · {r.telefono} ·{" "}
                       <span style={{color:r.estado==="confirmada"?"#2d6a4f":"#9a9080",fontWeight:600}}>{r.estado}</span>
                       {" · "}<span style={{color:pagado?"#2d6a4f":"#b45309",fontWeight:600}}>{pagado?"✓ pagado":"pendiente"}</span>
                     </div>
@@ -488,7 +558,7 @@ function ModalDia({ fecha, viajes, onClose, onConfirmarPasajero, onCancelarPasaj
                       const msg = encodeURIComponent(`Hola ${r.nombre.split(" ")[0]} 👋, te contactamos desde *Araucanía Viajes* por tu reserva del ${fmtFechaCorta(fecha)}.`);
                       window.open(`https://wa.me/${r.telefono.replace(/\D/g,"")}?text=${msg}`,"_blank");
                     }}>💬</button>
-                    <button className="rm-btn red" onClick={()=>onCancelarPasajero(r.id,r.nombre)}>✕</button>
+                    <button className="rm-btn red" onClick={()=>onCancelarPasajero(r.id, r.nombre)}>✕</button>
                   </div>
                 </div>
               );
@@ -505,16 +575,17 @@ function ModalDia({ fecha, viajes, onClose, onConfirmarPasajero, onCancelarPasaj
         <div className="rm-modal-hdr">
           <div>
             <div className="rm-modal-titulo">📅 {fmtFecha(fecha)}</div>
-            <div className="rm-modal-sub">{viajes.length} viaje(s) · {viajes.reduce((acc,v)=>
-              acc+(v.reservas?.filter(r=>r.estado!=="cancelada").reduce((s,r)=>s+(r.num_asientos||1),0)||0),0)} pasajeros totales</div>
+            <div className="rm-modal-sub">
+              {viajes.length} viaje(s) · {viajes.reduce((acc,v)=>
+                acc+(v.reservas?.filter(r=>r.estado!=="cancelada").reduce((s,r)=>s+(r.num_asientos||1),0)||0),0)} pasajeros
+            </div>
           </div>
           <button className="rm-modal-close" onClick={onClose}>✕</button>
         </div>
-
         <div className="rm-modal-body">
           {compartidos.length > 0 && (
             <>
-              <div className="rm-modal-seccion">🚌 Viajes Compartidos ({compartidos.length})</div>
+              <div className="rm-modal-seccion">🚌 Compartidos ({compartidos.length})</div>
               {compartidos.map(v => <SeccionViaje key={v.id} viaje={v}/>)}
             </>
           )}
@@ -535,20 +606,20 @@ function ModalDia({ fecha, viajes, onClose, onConfirmarPasajero, onCancelarPasaj
 
 // ─── Manager Principal ────────────────────────────────────────
 function ReservationManagerInner() {
-  const [tab,        setTab]        = useState("dashboard");
-  const [viajes,     setViajes]     = useState([]);
-  const [rutas,      setRutas]      = useState([]);
-  const [loading,    setLoading]    = useState(true);
-  const [abierto,    setAbierto]    = useState(null);
-  const [filtroTipo, setFiltroTipo] = useState("todos");
-  const [filtroFecha,setFiltroFecha]= useState("");
-  const [toast,      setToast]      = useState(null);
-  const [dialog,     setDialog]     = useState(null);
-  const [saving,     setSaving]     = useState(false);
+  const [tab,          setTab]          = useState("dashboard");
+  const [viajes,       setViajes]       = useState([]);
+  const [rutas,        setRutas]        = useState([]);
+  const [bloqueos,     setBloqueos]     = useState([]);
+  const [loading,      setLoading]      = useState(true);
+  const [abierto,      setAbierto]      = useState(null);
+  const [filtroTipo,   setFiltroTipo]   = useState("todos");
+  const [filtroFecha,  setFiltroFecha]  = useState("");
+  const [filtroRuta,   setFiltroRuta]   = useState("todas");
+  const [toast,        setToast]        = useState(null);
+  const [dialog,       setDialog]       = useState(null);
+  const [saving,       setSaving]       = useState(false);
   const [successViaje, setSuccessViaje] = useState(null);
-
-  // Modal calendario
-  const [modalDia, setModalDia] = useState(null); // { fecha, viajes }
+  const [modalDia,     setModalDia]     = useState(null);
 
   const FORM_VIAJE_INIT = { ruta_id:"", tipo:"compartido", fecha:"", hora_salida:"08:00", capacidad:8, precio_por_pax:"", conductor:"", vehiculo:"", notas_admin:"" };
   const FORM_RES_INIT   = { viaje_id:"", nombre:"", email:"", telefono:"", num_asientos:1, notas:"", origen_reserva:"telefono" };
@@ -568,31 +639,30 @@ function ReservationManagerInner() {
           pagos(id,monto,estado,metodo,referencia,fecha_pago))`)
       .order("fecha",      { ascending: true })
       .order("hora_salida",{ ascending: true });
-    if (!error) {
-      setViajes(data || []);
-      // Actualizar modal si está abierto
-      if (modalDia) {
-        const nuevosViajes = (data||[]).filter(v => v.fecha === modalDia.fecha && v.estado !== "cancelado");
-        setModalDia(prev => prev ? { ...prev, viajes: nuevosViajes } : null);
-      }
-    }
+    if (!error) setViajes(data || []);
     setLoading(false);
-  }, []); // eslint-disable-line
+  }, []);
 
   const cargarRutas = useCallback(async () => {
     const { data } = await supabase.from("rutas").select("*").eq("activa",true).order("nombre");
     setRutas(data||[]);
   }, []);
 
+  const cargarBloqueos = useCallback(async () => {
+    const { data } = await supabase.from("bloqueos").select("*").order("created_at", { ascending: false });
+    setBloqueos(data || []);
+  }, []);
+
   useEffect(() => {
-    cargarViajes(); cargarRutas();
+    cargarViajes(); cargarRutas(); cargarBloqueos();
     const ch = supabase.channel("rm-rt")
       .on("postgres_changes",{event:"*",schema:"public",table:"viajes"  },cargarViajes)
       .on("postgres_changes",{event:"*",schema:"public",table:"reservas"},cargarViajes)
       .on("postgres_changes",{event:"*",schema:"public",table:"pagos"   },cargarViajes)
+      .on("postgres_changes",{event:"*",schema:"public",table:"bloqueos"},cargarBloqueos)
       .subscribe();
     return () => supabase.removeChannel(ch);
-  }, [cargarViajes, cargarRutas]);
+  }, [cargarViajes, cargarRutas, cargarBloqueos]);
 
   // ── Stats ──────────────────────────────────────────────────
   const stats = {
@@ -607,11 +677,12 @@ function ReservationManagerInner() {
   const filtrados = viajes.filter(v => {
     const tipoOk  = filtroTipo==="todos" || v.tipo===filtroTipo;
     const fechaOk = !filtroFecha || v.fecha===filtroFecha;
-    const tabOk   = tab==="dashboard" ? true
+    const rutaOk  = tab!=="privado" || filtroRuta==="todas" || v.ruta?.nombre===filtroRuta;
+    const tabOk   = tab==="dashboard"  ? true
                   : tab==="compartido" ? v.tipo==="compartido"
                   : tab==="privado"    ? v.tipo==="privado"
                   : true;
-    return tipoOk && fechaOk && tabOk;
+    return tipoOk && fechaOk && tabOk && rutaOk;
   });
 
   // ── Acciones reservas ──────────────────────────────────────
@@ -680,7 +751,7 @@ function ReservationManagerInner() {
   const eliminarViajeCancelado = (viaje) => {
     setDialog({
       titulo:"🗑️ Eliminar viaje cancelado",
-      mensaje:`¿Eliminar permanentemente el viaje ${viaje.ruta?.nombre} del ${fmtFechaCorta(viaje.fecha)}? Se borrarán también todas sus reservas y pagos. Esta acción no se puede deshacer.`,
+      mensaje:`¿Eliminar permanentemente el viaje ${viaje.ruta?.nombre} del ${fmtFechaCorta(viaje.fecha)}? Se borrarán también todas sus reservas y pagos.`,
       danger:true,
       onConfirm: async () => {
         const reservaIds = (viaje.reservas||[]).map(r=>r.id);
@@ -692,6 +763,33 @@ function ReservationManagerInner() {
         if (!error) { showToast("🗑️ Viaje eliminado"); setAbierto(null); cargarViajes(); }
         else showToast("❌ Error al eliminar: "+error.message);
         setDialog(null);
+      }
+    });
+  };
+
+  // ── Bloqueos ───────────────────────────────────────────────
+  const agregarBloqueoDia = async (fecha, motivo) => {
+    if (!fecha) { showToast("⚠️ Selecciona una fecha"); return; }
+    const { error } = await supabase.from("bloqueos").insert({ tipo:"dia", fecha, motivo: motivo||null });
+    if (!error) { showToast("🔒 Fecha bloqueada"); cargarBloqueos(); }
+    else showToast("❌ "+error.message);
+  };
+
+  const agregarBloqueoMes = async (mes, anio, motivo) => {
+    if (!mes || !anio) { showToast("⚠️ Selecciona mes y año"); return; }
+    const { error } = await supabase.from("bloqueos").insert({ tipo:"mes", mes: Number(mes), anio: Number(anio), motivo: motivo||null });
+    if (!error) { showToast("🔒 Mes bloqueado"); cargarBloqueos(); }
+    else showToast("❌ "+error.message);
+  };
+
+  const eliminarBloqueo = (id) => {
+    setDialog({
+      titulo: "Eliminar bloqueo",
+      mensaje: "¿Eliminar este bloqueo? Los usuarios podrán volver a reservar en esa fecha.",
+      danger: true,
+      onConfirm: async () => {
+        await supabase.from("bloqueos").delete().eq("id", id);
+        showToast("✅ Bloqueo eliminado"); cargarBloqueos(); setDialog(null);
       }
     });
   };
@@ -740,8 +838,9 @@ function ReservationManagerInner() {
   };
 
   const rutaSel = rutas.find(r=>r.id===formViaje.ruta_id);
+  const rutasVanPrivada = [...new Set(viajes.filter(v=>v.tipo==="privado").map(v=>v.ruta?.nombre).filter(Boolean))];
 
-  // ─────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────
   return (
     <>
       <style>{css}</style>
@@ -759,10 +858,11 @@ function ReservationManagerInner() {
         {/* Tabs */}
         <div className="rm-tabs">
           {[
-            ["dashboard","📅 Dashboard"],
-            ["compartido","🚌 Compartido"],
-            ["privado","🚐 Van Privada"],
-            ["nuevo-viaje","🗓️ Nuevo viaje"],
+            ["dashboard",    "📅 Dashboard"],
+            ["compartido",   "🚌 Compartido"],
+            ["privado",      "🚐 Van Privada"],
+            ["bloqueos",     "🔒 Bloqueos"],
+            ["nuevo-viaje",  "🗓️ Nuevo viaje"],
             ["nueva-reserva","➕ Nueva reserva"],
           ].map(([k,l]) => (
             <button key={k} className={`rm-tab ${tab===k?"on":""}`} onClick={()=>{setTab(k);setSuccessViaje(null);}}>{l}</button>
@@ -771,12 +871,9 @@ function ReservationManagerInner() {
 
         <div className="rm-main">
 
-          {/* ══════════════════════════════════════════
-              TAB: DASHBOARD CON CALENDARIO
-          ══════════════════════════════════════════ */}
+          {/* ── DASHBOARD ── */}
           {tab === "dashboard" && (
             <>
-              {/* Calendario — arriba */}
               <div style={{marginBottom:24}}>
                 <div style={{display:"flex",gap:10,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
                   <span style={{fontSize:".7rem",color:"#aaa",letterSpacing:".06em",textTransform:"uppercase",fontWeight:600}}>Leyenda</span>
@@ -788,15 +885,17 @@ function ReservationManagerInner() {
                     <span style={{width:9,height:9,borderRadius:2,background:"#fff3e0",display:"inline-block",border:"1px solid #fed7aa"}}/>
                     <span style={{color:"#b45309",fontWeight:500}}>Van privada</span>
                   </span>
+                  <span style={{display:"flex",alignItems:"center",gap:5,fontSize:".72rem"}}>
+                    <span style={{width:9,height:9,borderRadius:2,background:"#fecaca",display:"inline-block",border:"1px solid #fca5a5"}}/>
+                    <span style={{color:"#991b1b",fontWeight:500}}>Bloqueado</span>
+                  </span>
                   <span style={{fontSize:".7rem",color:"#bbb",marginLeft:"auto"}}>Pincha un día para ver detalles</span>
                 </div>
                 {loading
                   ? <div className="rm-loading"><div className="rm-spinner"/><div>Cargando…</div></div>
-                  : <CalendarioDashboard viajes={viajes} onDiaClick={(fecha, viajesDia) => setModalDia({fecha, viajes: viajesDia})}/>
+                  : <CalendarioDashboard viajes={viajes} bloqueos={bloqueos} onDiaClick={(fecha,viajesDia)=>setModalDia({fecha,viajes:viajesDia})}/>
                 }
               </div>
-
-              {/* KPIs — debajo del calendario */}
               <div className="rm-kpi-grid">
                 <div className="rm-kpi">
                   <div className="rm-kpi-num">{stats.total}</div>
@@ -822,15 +921,25 @@ function ReservationManagerInner() {
             </>
           )}
 
-          {/* ══════════════════════════════════════════
-              TABS: COMPARTIDO / PRIVADO — Lista
-          ══════════════════════════════════════════ */}
+          {/* ── COMPARTIDO / PRIVADO ── */}
           {["compartido","privado"].includes(tab) && (
             <>
               <div className="rm-filters">
                 <input type="date" className="rm-date" value={filtroFecha} onChange={e=>setFiltroFecha(e.target.value)}/>
                 {filtroFecha && <button className="rm-fbtn" onClick={()=>setFiltroFecha("")}>✕ Limpiar</button>}
               </div>
+
+              {tab === "privado" && rutasVanPrivada.length > 0 && (
+                <div className="rm-filters" style={{marginTop:-8}}>
+                  <span style={{fontSize:".72rem",color:"#9a9080",fontWeight:600}}>Ruta:</span>
+                  <button className={`rm-fbtn ${filtroRuta==="todas"?"on":""}`} onClick={()=>setFiltroRuta("todas")}>Todas</button>
+                  {rutasVanPrivada.map(ruta => (
+                    <button key={ruta} className={`rm-fbtn ${filtroRuta===ruta?"on":""}`} onClick={()=>setFiltroRuta(ruta)}>
+                      {ruta.split("→")[0].trim().split(" ").slice(-1)[0]} → {ruta.split("→")[1]?.trim().split(",")[0]}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {loading
                 ? <div className="rm-loading"><div className="rm-spinner"/><div>Cargando…</div></div>
@@ -841,7 +950,7 @@ function ReservationManagerInner() {
                       const cfg  = ESTADO_CFG[viaje.estado] || ESTADO_CFG.en_espera;
                       const conf = viaje.reservas?.filter(r=>r.estado==="confirmada").length||0;
                       const pagados = viaje.reservas?.filter(r=>r.pagos?.some(p=>p.estado==="completado")).length||0;
-                      const pct  = viaje.capacidad ? Math.min((conf/viaje.capacidad)*100,100):0;
+                      const pct  = viaje.capacidad ? Math.min((conf/viaje.capacidad)*100,100) : 0;
                       const isOpen = abierto===viaje.id;
                       const ingresos = viaje.reservas?.flatMap(r=>r.pagos||[]).filter(p=>p.estado==="completado").reduce((s,p)=>s+p.monto,0)||0;
                       const isCancelado = viaje.estado==="cancelado";
@@ -973,9 +1082,17 @@ function ReservationManagerInner() {
             </>
           )}
 
-          {/* ══════════════════════════════════════════
-              TAB: NUEVO VIAJE
-          ══════════════════════════════════════════ */}
+          {/* ── BLOQUEOS ── */}
+          {tab === "bloqueos" && (
+            <BloqueoPanel
+              bloqueos={bloqueos}
+              onBloqueoDia={agregarBloqueoDia}
+              onBloqueoMes={agregarBloqueoMes}
+              onEliminar={eliminarBloqueo}
+            />
+          )}
+
+          {/* ── NUEVO VIAJE ── */}
           {tab === "nuevo-viaje" && (
             <>
               {successViaje ? (
@@ -1069,9 +1186,7 @@ function ReservationManagerInner() {
             </>
           )}
 
-          {/* ══════════════════════════════════════════
-              TAB: NUEVA RESERVA MANUAL
-          ══════════════════════════════════════════ */}
+          {/* ── NUEVA RESERVA ── */}
           {tab === "nueva-reserva" && (
             <div className="rm-form-wrap">
               <div className="rm-form-title">➕ Agregar reserva manual</div>
@@ -1130,12 +1245,12 @@ function ReservationManagerInner() {
             </div>
           )}
 
-        </div>{/* /main */}
+        </div>
 
         {/* Toast */}
         {toast && <div className="rm-toast">{toast}</div>}
 
-        {/* Dialog confirmación */}
+        {/* Dialog */}
         {dialog && !modalDia && (
           <div className="rm-ov" onClick={()=>setDialog(null)}>
             <div className="rm-dlg" onClick={e=>e.stopPropagation()}>
@@ -1151,19 +1266,19 @@ function ReservationManagerInner() {
           </div>
         )}
 
-        {/* Modal día del calendario */}
+        {/* Modal día */}
         {modalDia && (
           <ModalDia
             fecha={modalDia.fecha}
             viajes={modalDia.viajes}
             onClose={()=>setModalDia(null)}
-            onConfirmarPasajero={async (id)=>{ await confirmarPasajero(id); }}
-            onCancelarPasajero={(id,nombre)=>cancelarPasajero(id,nombre)}
-            onMarcarPagado={async (id,precio)=>{ await marcarPagado(id,precio); }}
-            onCancelarViaje={(viaje)=>cancelarViaje(viaje)}
-            showToast={showToast}
+            onConfirmarPasajero={confirmarPasajero}
+            onCancelarPasajero={cancelarPasajero}
+            onMarcarPagado={marcarPagado}
+            onCancelarViaje={cancelarViaje}
           />
         )}
+
         {/* Dialog dentro del modal */}
         {dialog && modalDia && (
           <div className="rm-ov" style={{zIndex:300}} onClick={()=>setDialog(null)}>
