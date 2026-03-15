@@ -2,7 +2,7 @@ import React from 'react';
 import { MessageCircle } from 'lucide-react';
 
 const WHATSAPP_NUMBER = '+56951569704';
-const WHATSAPP_MESSAGE = 'Hola, me interesa conocer más sobre sus servicios de transporte';
+const WHATSAPP_MESSAGE = 'Hola, vi que no hay disponibilidad en marzo. ¿Puedo reservar desde abril?';
 
 const WhatsAppButton = () => (
   <a
