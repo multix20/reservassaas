@@ -404,8 +404,8 @@ function BloqueoPanel({ bloqueos, onBloqueoDia, onBloqueoMes, onEliminar }) {
       {bloqueos.length === 0 && <div className="rm-empty">Sin bloqueos activos.</div>}
       <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
         {bloqueos.map(b => {
-          const tvCfg = TIPO_VIAJE_CFG[b.tipo_viaje||"ambos"];
-          return (
+  const tvCfg = TIPO_VIAJE_CFG[b.aplica_a||"ambos"];
+  return (
             <div key={b.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 14px", background:"#fff5f5", border:"1.5px solid #fecaca", borderRadius:12 }}>
               <div>
                 <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:".85rem", fontWeight:700, color:"#b91c1c" }}>
@@ -443,14 +443,21 @@ function CalendarioDashboard({ viajes, bloqueos, onDiaClick }) {
       return acc;
     }, {});
 
-  const esBloqueado = (fechaStr) => {
-    const f = new Date(fechaStr + "T12:00:00");
-    return bloqueos.some(b =>
-      (b.tipo === "dia" && b.fecha === fechaStr) ||
-      (b.tipo === "mes" && b.mes === f.getMonth()+1 && b.anio === f.getFullYear())
-    );
-  };
-
+  const getBloqueosTipo = (fechaStr) => {
+  const f = new Date(fechaStr + "T12:00:00");
+  const activos = bloqueos.filter(b =>
+    (b.tipo === "dia" && b.fecha === fechaStr) ||
+    (b.tipo === "mes" && b.mes === f.getMonth()+1 && b.anio === f.getFullYear())
+  );
+  if (!activos.length) return new Set();
+  const tipos = new Set();
+  activos.forEach(b => {
+    const a = b.aplica_a || "ambos";
+    if (a === "ambos") { tipos.add("compartido"); tipos.add("privado"); }
+    else tipos.add(a);
+  });
+  return tipos;
+};
   const navMes = (delta) => {
     let nm = mes + delta, na = año;
     if (nm < 0)  { nm = 11; na--; }
@@ -493,46 +500,48 @@ function CalendarioDashboard({ viajes, bloqueos, onDiaClick }) {
             </div>
           );
 
-          const tieneViajes  = celda.viajes?.length > 0;
-          const esHoy        = celda.fecha === todayKey;
-          const bloqueado    = esBloqueado(celda.fecha);
-          const compartidos  = celda.viajes?.filter(v => v.tipo === "compartido") || [];
-          const privados     = celda.viajes?.filter(v => v.tipo === "privado")    || [];
-          const totalMonto   = celda.viajes?.reduce((acc, v) =>
-            acc + (v.reservas?.flatMap(r=>r.pagos||[]).filter(p=>p.estado==="completado").reduce((s,p)=>s+p.monto,0)||0), 0) || 0;
+          const tieneViajes = celda.viajes?.length > 0;
+const esHoy       = celda.fecha === todayKey;
+const bloqueados  = getBloqueosTipo(celda.fecha);
+const totBlq      = bloqueados.has("compartido") && bloqueados.has("privado");
+const parcBlq     = bloqueados.size > 0 && !totBlq;
+const compartidos = celda.viajes?.filter(v => v.tipo === "compartido") || [];
+const privados    = celda.viajes?.filter(v => v.tipo === "privado")    || [];
+const paxComp     = compartidos.reduce((a,v) => a + (v.reservas?.filter(r=>r.estado!=="cancelada").reduce((s,r)=>s+r.num_asientos,0)||0), 0);
+const paxPriv     = privados.reduce((a,v)    => a + (v.reservas?.filter(r=>r.estado!=="cancelada").reduce((s,r)=>s+r.num_asientos,0)||0), 0);
 
-          let clases = "rm-cal-day";
-          if (bloqueado) clases += " bloqueado";
-          else if (tieneViajes) clases += " tiene-viajes";
-          if (esHoy) clases += " hoy";
+let clases = "rm-cal-day";
+if (totBlq && !tieneViajes)     clases += " bloqueado";
+else if (totBlq && tieneViajes) clases += " bloqueado-con-viaje";
+else if (parcBlq)               clases += " parcial-bloqueado";
+else if (tieneViajes)           clases += " tiene-viajes";
+if (esHoy) clases += " hoy";
 
           return (
             <div
               key={i}
               className={clases}
-              onClick={() => !bloqueado && tieneViajes && onDiaClick(celda.fecha, celda.viajes)}
+              onClick={() => tieneViajes && onDiaClick(celda.fecha, celda.viajes)}
             >
-              <div className="rm-dia-num">{celda.dia}</div>
-              {bloqueado && <div className="rm-dia-dot bloq-tag">🔒 Bloqueado</div>}
-              {!bloqueado && tieneViajes && (
-                <div className="rm-dia-dots">
-                  {compartidos.length > 0 && (
-                    <div className="rm-dia-dot compartido">
-                      🚌 {compartidos.length} · {compartidos.reduce((acc,v) =>
-                        acc + (v.reservas?.filter(r=>r.estado!=="cancelada").reduce((s,r)=>s+(r.num_asientos||1),0)||0),0)} pax
-                    </div>
-                  )}
-                  {privados.length > 0 && (
-                    <div className="rm-dia-dot privado">
-                      🚐 {privados.length} · {privados.reduce((acc,v) =>
-                        acc + (v.reservas?.filter(r=>r.estado!=="cancelada").reduce((s,r)=>s+(r.num_asientos||1),0)||0),0)} pax
-                    </div>
-                  )}
-                  {totalMonto > 0 && (
-                    <div className="rm-dia-total">{fmtPeso(totalMonto)}</div>
-                  )}
-                </div>
-              )}
+             <div className="rm-dia-dots">
+  {totBlq && <div className="rm-dia-dot bloq-tag">🔒 Cerrado</div>}
+  {parcBlq && bloqueados.has("compartido") && (
+    <div className="rm-dia-dot bloq-tag">🔒 Sin compartido</div>
+  )}
+  {parcBlq && bloqueados.has("privado") && (
+    <div className="rm-dia-dot bloq-tag">🔒 Sin privados</div>
+  )}
+  {compartidos.length > 0 && (
+    <div className="rm-dia-dot compartido">
+      🚌 {compartidos.length} viaje{compartidos.length>1?"s":""} · {paxComp} pax
+    </div>
+  )}
+  {privados.length > 0 && (
+    <div className="rm-dia-dot privado">
+      🚐 {privados.length} viaje{privados.length>1?"s":""} · {paxPriv} pax
+    </div>
+  )}
+</div>
             </div>
           );
         })}
@@ -810,19 +819,23 @@ function ReservationManagerInner() {
   };
 
   // ── Bloqueos ───────────────────────────────────────────────
-  const agregarBloqueoDia = async (fecha, motivo, tipoViaje="ambos") => {
-    if (!fecha) { showToast("⚠️ Selecciona una fecha"); return; }
-    const { error } = await supabase.from("bloqueos").insert({ tipo:"dia", fecha, motivo: motivo||null, tipo_viaje: tipoViaje });
-    if (!error) { showToast("🔒 Fecha bloqueada"); cargarBloqueos(); }
-    else showToast("❌ "+error.message);
-  };
+  const agregarBloqueoDia = async (fecha, motivo, aplica_a = "ambos") => {
+  if (!fecha) { showToast("⚠️ Selecciona una fecha"); return; }
+  const { error } = await supabase.from("bloqueos").insert({
+    tipo: "dia", fecha, motivo: motivo || null, aplica_a
+  });
+  if (!error) { showToast("🔒 Fecha bloqueada"); cargarBloqueos(); }
+  else showToast("❌ " + error.message);
+};
 
-  const agregarBloqueoMes = async (mes, anio, motivo, tipoViaje="ambos") => {
-    if (!mes || !anio) { showToast("⚠️ Selecciona mes y año"); return; }
-    const { error } = await supabase.from("bloqueos").insert({ tipo:"mes", mes: Number(mes), anio: Number(anio), motivo: motivo||null, tipo_viaje: tipoViaje });
-    if (!error) { showToast("🔒 Mes bloqueado"); cargarBloqueos(); }
-    else showToast("❌ "+error.message);
-  };
+  const agregarBloqueoMes = async (mes, anio, motivo, aplica_a = "ambos") => {
+  if (!mes || !anio) { showToast("⚠️ Selecciona mes y año"); return; }
+  const { error } = await supabase.from("bloqueos").insert({
+    tipo: "mes", mes: Number(mes), anio: Number(anio), motivo: motivo || null, aplica_a
+  });
+  if (!error) { showToast("🔒 Mes bloqueado"); cargarBloqueos(); }
+  else showToast("❌ " + error.message);
+};
 
   const eliminarBloqueo = (id) => {
     setDialog({
