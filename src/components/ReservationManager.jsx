@@ -701,6 +701,7 @@ function ReservationManagerInner() {
 
   const cargarBloqueos = useCallback(async () => {
     const { data } = await supabase.from("bloqueos").select("*").order("created_at", { ascending: false });
+    console.log("BLOQUEOS DETALLE:", JSON.stringify(data));
     setBloqueos(data || []);
   }, []);
 
