@@ -323,7 +323,7 @@ export default function Reservas() {
     if (!fechaStr) return false;
     const f = new Date(fechaStr + "T12:00:00");
     return bloqueos.some(b => {
-      const afecta = b.tipo_viaje === "ambos" || b.tipo_viaje === tipo;
+      const afecta = b.aplica_a === "ambos" || b.aplica_a === tipo
       if (!afecta) return false;
       if (b.tipo === "dia") return b.fecha === fechaStr;
       if (b.tipo === "mes") return b.mes === f.getMonth()+1 && b.anio === f.getFullYear();
