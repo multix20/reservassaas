@@ -1,8 +1,21 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  "https://pyloifgprupypgkhkqmx.supabase.co",
-  "sb_publishable_UN__-qAOLiEli5p9xY9ypQ_Qr9wxajL"
-);
+let supabase;
+
+if (typeof window !== "undefined") {
+  if (!window.__sb__) {
+    window.__sb__ = createClient(
+      import.meta.env.VITE_SUPABASE_URL,
+      import.meta.env.VITE_SUPABASE_ANON_KEY,
+      {
+        auth: {
+          persistSession: true,
+          storageKey: "av_session",  // clave única evita conflictos
+        }
+      }
+    );
+  }
+  supabase = window.__sb__;
+}
 
 export default supabase;

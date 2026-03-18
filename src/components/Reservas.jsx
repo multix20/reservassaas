@@ -90,10 +90,10 @@ function useAddressHistory() {
 }
 
 const RUTA_NOMBRE = {
-  "pucon-aeropuerto":      "Pucón → Aeropuerto Temuco ZCO",
-  "villarrica-aeropuerto": "Villarrica → Aeropuerto Temuco ZCO",
-  "aeropuerto-pucon":      "Aeropuerto Temuco ZCO → Pucón",
-  "aeropuerto-villarrica": "Aeropuerto Temuco ZCO → Villarrica",
+  "pucon-aeropuerto":      "Pucón → Temuco ZCO",
+  "villarrica-aeropuerto": "Villarrica → Temuco ZCO",
+  "aeropuerto-pucon":      "Temuco ZCO → Pucón",
+  "aeropuerto-villarrica": "Temuco ZCO → Villarrica",
 };
 
 const fmt    = (str) => { if (!str) return ""; const [y,m,d]=str.split("-"); return new Date(y,m-1,d).toLocaleDateString("es-CL",{weekday:"long",day:"numeric",month:"long"}); };
@@ -145,7 +145,7 @@ const IcoCal = ({ size=15, c="#9a9080" }) => (
 );
 
 // ── Helpers Supabase ──────────────────────────────────────────────────────────
-async function obtenerOCrearViaje({ rutaKey, origenId, destinoId, fecha, tipo, precio_por_pax, origenLabel, destinoLabel }) {
+async function obtenerOCrearViaje({ rutaKey, origenId, destinoId, fecha, hora, tipo, precio_por_pax, origenLabel, destinoLabel }) {
   const rutaNombre = RUTA_NOMBRE[rutaKey] || `${origenLabel || origenId} → ${destinoLabel || destinoId}`;
   const { data: rutaExistente } = await supabase.from("rutas").select("id").eq("nombre", rutaNombre).maybeSingle();
   let rutaId = rutaExistente?.id;
@@ -161,7 +161,7 @@ async function obtenerOCrearViaje({ rutaKey, origenId, destinoId, fecha, tipo, p
     .eq("ruta_id", rutaId).eq("fecha", fecha).eq("tipo", tipo).not("estado","eq","cancelado").maybeSingle();
   if (viajeExistente) return viajeExistente.id;
   const { data: nuevoViaje, error } = await supabase.from("viajes")
-    .insert({ ruta_id:rutaId, tipo, fecha, hora_salida:"08:00", capacidad: tipo==="compartido" ? MAX_ASIENTOS : 8, precio_por_pax, estado:"en_espera" })
+    .insert({ ruta_id:rutaId, tipo, fecha, hora_salida: hora || "08:00", capacidad: tipo==="compartido" ? MAX_ASIENTOS : 8, precio_por_pax, estado:"en_espera" })
     .select("id").single();
   if (error) throw new Error("No se pudo crear el viaje");
   return nuevoViaje.id;
@@ -219,6 +219,16 @@ const TARIFAS_FIJAS = {
   "loncoche-aeropuerto":   { van:75000, persona:paxDesdeVan(75000) },
   "temuco-pitrufquen":     { van:40000, persona:paxDesdeVan(40000) },
   "pitrufquen-temuco":     { van:40000, persona:paxDesdeVan(40000) },
+  "aeropuerto-panguipulli": { van:110000, persona:paxDesdeVan(110000) },
+  "panguipulli-aeropuerto": { van:110000, persona:paxDesdeVan(110000) },
+  "aeropuerto-valdivia":    { van:140000, persona:paxDesdeVan(140000) },
+  "valdivia-aeropuerto":    { van:140000, persona:paxDesdeVan(140000) },
+  "temuco-panguipulli":     { van:110000, persona:paxDesdeVan(110000) },
+  "panguipulli-temuco":     { van:110000, persona:paxDesdeVan(110000) },
+  "temuco-valdivia":        { van:140000, persona:paxDesdeVan(140000) },
+  "valdivia-temuco":        { van:140000, persona:paxDesdeVan(140000) },
+  "pucon-panguipulli":      { van:50000,  persona:paxDesdeVan(50000)  },
+  "panguipulli-pucon":      { van:50000,  persona:paxDesdeVan(50000)  },
   "aeropuerto-pitrufquen": { van:42000, persona:paxDesdeVan(42000) },
   "pitrufquen-aeropuerto": { van:42000, persona:paxDesdeVan(42000) },
 };
@@ -272,9 +282,12 @@ async function obtenerDistancia(origen, destino) {
 }
 
 const PUNTOS_FRECUENTES = [
-  { id:"aeropuerto", label:"✈️  Aeropuerto Temuco ZCO", sub:"Terminal principal · La Araucanía", lat:-38.9258, lng:-72.6372 },
-  { id:"pucon",      label:"🏔️  Centro de Pucón",        sub:"Pucón, La Araucanía",               lat:-39.2724, lng:-71.9766 },
-  { id:"villarrica", label:"🌋  Centro de Villarrica",    sub:"Villarrica, La Araucanía",          lat:-39.2833, lng:-72.2333 },
+  { id:"aeropuerto", label:"Temuco ZCO", sub:"Aeropuerto Araucanía · La Araucanía", lat:-38.9258, lng:-72.6372 },
+  { id:"pucon",      label:"Pucón",                 sub:"Pucón, La Araucanía",               lat:-39.2724, lng:-71.9766 },
+  { id:"villarrica", label:"Villarrica",             sub:"Villarrica, La Araucanía",          lat:-39.2833, lng:-72.2333 },
+  { id:"panguipulli",label:"Panguipulli",            sub:"Panguipulli, Los Ríos",             lat:-39.6417, lng:-72.3333 },
+  { id:"valdivia",   label:"Valdivia",               sub:"Valdivia, Los Ríos",                lat:-39.8142, lng:-73.2459 },
+  { id:"victoria",   label:"Victoria",               sub:"Victoria, La Araucanía",            lat:-38.2317, lng:-72.3317 },
 ];
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -291,8 +304,10 @@ export default function Reservas() {
   const origenId  = origen?.id  || "custom";
   const destinoId = destino?.id || "custom";
 
-  const [fecha,        setFecha]        = useState("");
-  const [hora,         setHora]         = useState("");
+  const [fechaComp,    setFechaComp]    = useState("");
+  const [horaComp,     setHoraComp]     = useState("");
+  const [fechaVan,     setFechaVan]     = useState("");
+  const [horaVan,      setHoraVan]      = useState("");
   const [tipoRuta,     setTipoRuta]     = useState("ida");
   const [horaRegreso,  setHoraRegreso]  = useState("");
   const [horaFlexible, setHoraFlexible] = useState(false);
@@ -306,7 +321,7 @@ export default function Reservas() {
   const [calculando,   setCalculando]   = useState(false);
   const [rutaDataDyn,  setRutaDataDyn]  = useState(null);
 
-  // ── Bloqueos desde Supabase (dentro del componente) ───────────────────────
+  // ── Bloqueos desde Supabase ───────────────────────────────────────────────
   const [bloqueos, setBloqueos] = useState([]);
 
   useEffect(() => {
@@ -314,16 +329,17 @@ export default function Reservas() {
   }, []);
 
   useEffect(() => {
-    if (fecha) {
+    const f = fechaComp || fechaVan;
+    if (f) {
       supabase.from("bloqueos").select("*").then(({ data }) => setBloqueos(data || []));
     }
-  }, [fecha]);
+  }, [fechaComp, fechaVan]);
 
   const esBloqueadoPorTipo = (fechaStr, tipo) => {
     if (!fechaStr) return false;
     const f = new Date(fechaStr + "T12:00:00");
     return bloqueos.some(b => {
-      const afecta = b.aplica_a === "ambos" || b.aplica_a === tipo
+      const afecta = b.aplica_a === "ambos" || b.aplica_a === tipo;
       if (!afecta) return false;
       if (b.tipo === "dia") return b.fecha === fechaStr;
       if (b.tipo === "mes") return b.mes === f.getMonth()+1 && b.anio === f.getFullYear();
@@ -331,15 +347,23 @@ export default function Reservas() {
     });
   };
 
-  const sinCupoCompartido = esBloqueadoPorTipo(fecha, "compartido");
-  const sinCupoPrivado    = esBloqueadoPorTipo(fecha, "privado");
-  // ─────────────────────────────────────────────────────────────────────────
+  // fecha/hora activa según tipo seleccionado
+  const fecha = tipoViaje === "van_completa" ? fechaVan : fechaComp;
+  const hora  = tipoViaje === "van_completa" ? horaVan  : horaComp;
+  const setFecha = tipoViaje === "van_completa" ? setFechaVan : setFechaComp;
+  const setHora  = tipoViaje === "van_completa" ? setHoraVan  : setHoraComp;
+
+  const fechaSeleccionada = tipoViaje === "van_completa" ? !!fechaVan  : !!fechaComp;
+  const horaSeleccionada  = tipoViaje === "van_completa" ? !!horaVan   : !!horaComp;
+
+  const sinCupoCompartido = esBloqueadoPorTipo(fechaComp, "compartido");
+  const sinCupoPrivado    = esBloqueadoPorTipo(fechaVan,  "privado");
 
   const topRef = useRef(null);
 
   useEffect(() => { setRutaDataDyn(null); }, [origen, destino]);
   useEffect(() => { setHoraRegreso(""); setHoraFlexible(false); }, [tipoRuta]);
-  useEffect(() => { setHoraRegreso(""); }, [hora]);
+  useEffect(() => { setHoraRegreso(""); }, [horaComp]);
 
   const esIdaVuelta = tipoRuta === "ida_vuelta";
 
@@ -368,24 +392,42 @@ export default function Reservas() {
   const ir     = (p) => { setPantalla(p); scroll(); };
 
   useEffect(() => {
-    if (!rutaKey || !fecha || tipoViaje !== "compartido") return;
-    contarAsientosOcupados(rutaKey, fecha).then(setAsientosOcupados);
-  }, [rutaKey, fecha, tipoViaje]);
+    if (origen && destino) verTarifas();
+  }, [origen, destino]); // eslint-disable-line
+
+  useEffect(() => {
+    if (!rutaKey || !fechaComp || tipoViaje !== "compartido") return;
+    contarAsientosOcupados(rutaKey, fechaComp).then(setAsientosOcupados);
+  }, [rutaKey, fechaComp, tipoViaje]);
 
   const verTarifas = async () => {
-    if (!origen || !destino || !fecha || !hora) return;
+    if (!origen || !destino) return;
     setCalculando(true); setError("");
     try {
       guardar(origen); guardar(destino);
       const metros  = await obtenerDistancia(origen, destino);
       const tarifas = calcularTarifas(metros, origen, destino);
       setRutaDataDyn({ ...tarifas, duracion:`~${Math.round(metros/1000/60)} min` });
-      ir("tarifas");
     } catch {
-      setError("No se pudo calcular la ruta. Intenta de nuevo.");
+      setError("No se pudo calcular la ruta.");
     } finally {
       setCalculando(false);
     }
+  };
+
+  // ── Navegar directo a confirmar calculando tarifas si hace falta ──────────
+  // ── Reservar directo sin pantalla de confirmación ──────────────────────
+  const reservarDirecto = async () => {
+    if (!usuario) {
+      setError("Debes iniciar sesión para reservar.");
+      document.querySelector(".hdr__signin, .hdr__register")?.click();
+      return;
+    }
+    setError("");
+    if (!rutaData) {
+      await verTarifas();
+    }
+    await confirmar();
   };
 
   const confirmar = async () => {
@@ -396,7 +438,7 @@ export default function Reservas() {
       const precioPax = tipoViaje === "compartido" ? precioPersona : precioVan;
 
       const viajeId = await obtenerOCrearViaje({
-        rutaKey, origenId, destinoId, fecha, tipo,
+        rutaKey, origenId, destinoId, fecha, hora, tipo,
         precio_por_pax: precioPax,
         origenLabel:  origen?.label  || "",
         destinoLabel: destino?.label || "",
@@ -432,7 +474,7 @@ export default function Reservas() {
         const rutaKeyRet = `${destinoId}-${origenId}`;
         const viajeIdRet = await obtenerOCrearViaje({
           rutaKey: rutaKeyRet, origenId: destinoId, destinoId: origenId,
-          fecha, tipo, precio_por_pax: precioPax,
+          fecha, hora: horaRegreso || hora, tipo, precio_por_pax: precioPax,
           origenLabel: destino?.label || "", destinoLabel: origen?.label || "",
         });
         await supabase.from("reservas").insert([{
@@ -464,7 +506,6 @@ export default function Reservas() {
       }
 
       setEnviando(false);
-      abrirWhatsApp(resIda.id);
       ir("ok");
     } catch (e) {
       setError(e.message || "Error al procesar. Intenta de nuevo.");
@@ -491,8 +532,9 @@ export default function Reservas() {
   };
 
   const reset = () => {
-    setPantalla("inicio"); setOrigen(null); setDestino(null); setFecha("");
-    setPasajeros(1); setTipoViaje(""); setModoPago("abono"); setHora("");
+    setPantalla("inicio"); setOrigen(null); setDestino(null);
+    setFechaComp(""); setHoraComp(""); setFechaVan(""); setHoraVan("");
+    setPasajeros(1); setTipoViaje(""); setModoPago("abono");
     setTipoRuta("ida"); setHoraRegreso(""); setHoraFlexible(false);
     setReservaId(null); setError(""); scroll();
   };
@@ -504,26 +546,110 @@ export default function Reservas() {
     <div ref={topRef} style={S.root}>
       <style>{css}</style>
       <div style={S.okWrap} className="fade-in">
-        <div style={S.okCircle}><IcoCheck size={32}/></div>
-        <h2 style={S.okTitle}>{tipoViaje==="compartido" ? "¡Reserva lista!" : "¡Van reservada!"}</h2>
-        <p style={S.okSub}>
-          {tipoViaje==="compartido"
-            ? `Te avisamos por WhatsApp cuando se llene el cupo (${MAX_ASIENTOS} pax).`
-            : "Revisa tu WhatsApp con los detalles del pago."}
-        </p>
-        <div style={S.okCard}>
-          <Row label="Ruta"      val={rutaLabel}/>
-          <Row label="Fecha"     val={fmt(fecha)}/>
-          {esIdaVuelta && <Row label="Regreso" val={horaFlexible ? "Hora a coordinar por WhatsApp" : `${fmt(fecha)} · ${horaRegreso}`}/>}
-          <Row label="Pasajeros" val={`${pasajeros} pax`}/>
-          <Row label="Total"     val={precio(montoTotal)} bold/>
+
+        {/* Header compacto */}
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:8, marginBottom:16 }}>
+          <div style={{ width:50, height:50, borderRadius:"50%", background:"#16a34a", boxShadow:"0 6px 20px rgba(22,163,74,0.35)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <IcoCheck size={24}/>
+          </div>
+          <div style={{ textAlign:"center" }}>
+            <h2 style={{ fontFamily:"'Syne',sans-serif", fontSize:"clamp(1.2rem,5vw,1.45rem)", fontWeight:800, color:"#1a1611", marginBottom:2 }}>
+              {tipoViaje==="compartido" ? "¡Reserva confirmada!" : "¡Van reservada!"}
+            </h2>
+            <p style={{ fontSize:"0.76rem", color:"#9a9080", lineHeight:1.4 }}>
+              {tipoViaje==="compartido"
+                ? "Sin costo ahora · Te avisamos cuando se llene el cupo"
+                : "Tu van está reservada"}
+            </p>
+          </div>
         </div>
-        <button className="btn-wa" onClick={() => abrirWhatsApp(reservaId)}><IcoWA/> Abrir WhatsApp</button>
-        <button className="btn-ghost" onClick={reset} style={{ marginTop:10 }}>Nueva reserva</button>
-        <button className="btn-mis-reservas" onClick={() => document.dispatchEvent(new CustomEvent("openMisReservas"))}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
-          Ver mis reservas
+
+        {/* Card compacta */}
+        <div style={{ background:"#EDE5D0", border:"1px solid #D4CBB8", borderRadius:16, width:"100%", marginBottom:12, overflow:"hidden" }}>
+
+          {/* Ruta — fila horizontal con subetiquetas */}
+          <div style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 16px", borderBottom:"1px solid #D4CBB8", background:"#E8E0D0" }}>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:"0.82rem", fontWeight:700, color:"#1a1611", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                {origen?.label || ""}
+              </div>
+              {(origen?.id === "aeropuerto" || (origen?.label || "").toLowerCase().includes("zco")) && (
+                <div style={{ fontSize:"0.68rem", color:"#9a9080", marginTop:1 }}>Aeropuerto de Temuco</div>
+              )}
+            </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9a9080" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}>
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+            <div style={{ flex:1, minWidth:0, textAlign:"right" }}>
+              <div style={{ fontSize:"0.82rem", fontWeight:700, color:"#1a1611", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                {destino?.label || ""}
+              </div>
+              {(destino?.id === "aeropuerto" || (destino?.label || "").toLowerCase().includes("zco")) && (
+                <div style={{ fontSize:"0.68rem", color:"#9a9080", marginTop:1 }}>Aeropuerto de Temuco</div>
+              )}
+            </div>
+          </div>
+
+          {/* Grilla 2x2 */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:0 }}>
+            <div style={{ padding:"10px 16px", borderBottom:"1px solid #D4CBB8", borderRight:"1px solid #D4CBB8" }}>
+              <div style={{ fontSize:"0.62rem", color:"#9a9080", fontWeight:700, letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:3 }}>Salida</div>
+              <div style={{ fontSize:"0.8rem", fontWeight:700, color:"#1a1611" }}>{fmt(fecha)}</div>
+              <div style={{ fontSize:"0.78rem", fontWeight:600, color:"#6b5e4e", marginTop:1 }}>{hora}</div>
+            </div>
+            <div style={{ padding:"10px 16px", borderBottom:"1px solid #D4CBB8" }}>
+              <div style={{ fontSize:"0.62rem", color:"#9a9080", fontWeight:700, letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:3 }}>Servicio</div>
+              <div style={{ fontSize:"0.8rem", fontWeight:700, color:"#1a1611" }}>
+                {tipoViaje==="compartido" ? "Transfer" : "Van privada"}
+              </div>
+              <div style={{ display:"flex", alignItems:"center", gap:2, marginTop:3 }}>
+                {tipoViaje==="compartido"
+                  ? Array.from({ length: Math.min(pasajeros,5) }).map((_,i) => (
+                      <svg key={i} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b5e4e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                      </svg>
+                    ))
+                  : <span style={{ fontSize:"0.7rem", color:"#6b5e4e" }}>Exclusivo</span>
+                }
+                {tipoViaje==="compartido" && pasajeros > 5 && <span style={{ fontSize:"0.68rem", color:"#9a9080" }}>+{pasajeros-5}</span>}
+              </div>
+            </div>
+
+            {/* Total */}
+            <div style={{ gridColumn:"1/-1", padding:"12px 16px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div>
+                <div style={{ fontSize:"0.62rem", color:"#9a9080", fontWeight:700, letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:2 }}>
+                  {tipoViaje==="compartido" ? "Total al confirmar cupo" : "Total"}
+                </div>
+                {tipoViaje==="compartido" && (
+                  <div style={{ fontSize:"0.68rem", color:"#16a34a", fontWeight:600 }}>✓ Sin cargo ahora</div>
+                )}
+              </div>
+              <span style={{ fontSize:"1.45rem", fontWeight:800, color:"#1a1611", letterSpacing:"-0.02em" }}>
+                {precio(montoTotal)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* CTA WhatsApp */}
+        <button className="btn-wa" onClick={() => abrirWhatsApp(reservaId)} style={{ marginBottom:6 }}>
+          <IcoWA/> Confirmar por WhatsApp
         </button>
+        <p style={{ fontSize:"0.68rem", color:"#9a9080", textAlign:"center", marginBottom:10, lineHeight:1.4 }}>
+          Envía los detalles a nuestro equipo por WhatsApp
+        </p>
+
+        <div style={{ display:"flex", gap:8, width:"100%" }}>
+          <button className="btn-ghost" onClick={reset} style={{ flex:1, padding:"12px" }}>Nueva reserva</button>
+          <button className="btn-mis-reservas" style={{ flex:1, margin:0, padding:"12px" }} onClick={() => document.dispatchEvent(new CustomEvent("openMisReservas"))}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+              <rect x="9" y="3" width="6" height="4" rx="1"/>
+            </svg>
+            Mis reservas
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -537,7 +663,7 @@ export default function Reservas() {
         <style>{css}</style>
         <div style={S.wrap}>
           <div style={S.topBar}>
-            <button className="btn-back" onClick={() => ir("tarifas")}><IcoChevron dir="left" c="#1a1611" size={20}/></button>
+            <button className="btn-back" onClick={() => ir("inicio")}><IcoChevron dir="left" c="#1a1611" size={20}/></button>
             <span style={S.topTitle}>Confirmar viaje</span>
             <div style={{ width:44 }}/>
           </div>
@@ -558,7 +684,7 @@ export default function Reservas() {
         <style>{css}</style>
         <div style={S.wrap}>
           <div style={S.topBar}>
-            <button className="btn-back" onClick={() => ir("tarifas")}><IcoChevron dir="left" c="#1a1611" size={20}/></button>
+            <button className="btn-back" onClick={() => ir("inicio")}><IcoChevron dir="left" c="#1a1611" size={20}/></button>
             <span style={S.topTitle}>Confirmar viaje</span>
             <div style={{ width:44 }}/>
           </div>
@@ -656,123 +782,14 @@ export default function Reservas() {
   }
 
   // ════════════════════════════════════════════════════════════════════════════
-  // PANTALLA: TARIFAS
-  // ════════════════════════════════════════════════════════════════════════════
-  if (pantalla === "tarifas") return (
-    <div ref={topRef} style={S.root}>
-      <style>{css}</style>
-      <div style={S.wrap}>
-        <div style={S.topBar}>
-          <button className="btn-back" onClick={() => ir("inicio")}><IcoChevron dir="left" c="#1a1611" size={20}/></button>
-          <span style={S.topTitle}>Elige tu viaje</span>
-          <div style={{ width:44 }}/>
-        </div>
-        <div style={S.rutaPill} className="fade-in">
-          <div style={S.rutaDot}/>
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={S.rutaTexto}>{origen?.label}</div>
-            <div style={S.rutaLinea}/>
-            <div style={S.rutaTexto}>{destino?.label}</div>
-          </div>
-          <div style={{ textAlign:"right", flexShrink:0 }}>
-            <div style={S.pillMeta}>{fmt(fecha).split(",")[0]}</div>
-            <div style={S.pillMeta}>{pasajeros} pax · {rutaData?.km || "—"}</div>
-          </div>
-        </div>
-
-        <div style={{ display:"flex", flexDirection:"column", gap:10, marginTop:4 }}>
-          {/* ── Compartido ── */}
-          <div style={{ position:"relative", overflow:"hidden", borderRadius:16 }}>
-            <button
-              className={`tarifa-card${tipoViaje==="compartido"?" tarifa-on":""}`}
-              onClick={() => !sinCupoCompartido && setTipoViaje("compartido")}
-              style={{ width:"100%", opacity:sinCupoCompartido?0.55:1, cursor:sinCupoCompartido?"not-allowed":"pointer", pointerEvents:sinCupoCompartido?"none":"auto" }}
-            >
-              <div style={S.tarifaIco}><IcoBus size={30} c={tipoViaje==="compartido"?"#1a1611":"#9a9080"}/></div>
-              <div style={{ flex:1, textAlign:"left", minWidth:0 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
-                  <span style={{ fontWeight:700, fontSize:"1rem", color:"#1a1611" }}>Compartido</span>
-                  <span style={S.badge}>Más económico</span>
-                </div>
-                <div style={{ fontSize:"0.75rem", color:"#9a9080", marginTop:3 }}>
-                  {sinCupoCompartido ? "Sin disponibilidad en esta fecha" : `${asientosLibres} asientos libres · ${rutaData?.duracion||""}`}
-                </div>
-              </div>
-              <div style={{ textAlign:"right", flexShrink:0, minWidth:90 }}>
-                <div style={{ fontWeight:800, fontSize:"1.15rem", color:"#1a1611", whiteSpace:"nowrap" }}>
-                  {rutaData ? precio(precioPersona * pasajeros) : "—"}
-                </div>
-                {pasajeros > 1 && rutaData && !sinCupoCompartido
-                  ? <div style={{ fontSize:"0.7rem", color:"#9a9080", whiteSpace:"nowrap" }}>{precio(precioPersona)} × {pasajeros}</div>
-                  : <div style={{ fontSize:"0.7rem", color:"#9a9080" }}>por pasajero</div>
-                }
-              </div>
-            </button>
-            {sinCupoCompartido && (
-              <div style={{ position:"absolute", top:18, right:-30, width:165, background:"#c0290e", color:"#ffffff", fontSize:"0.68rem", fontWeight:800, fontFamily:"'DM Sans',sans-serif", textAlign:"center", padding:"5px 0", transform:"rotate(38deg)", letterSpacing:"0.07em", boxShadow:"0 2px 10px rgba(192,41,14,0.4)", pointerEvents:"none", zIndex:10, textTransform:"uppercase" }}>
-                ¡Sin cupo!
-              </div>
-            )}
-          </div>
-
-          {/* ── Van privada ── */}
-          <div style={{ position:"relative", overflow:"hidden", borderRadius:16 }}>
-            <button
-              className={`tarifa-card${tipoViaje==="van_completa"?" tarifa-on":""}`}
-              onClick={() => !sinCupoPrivado && setTipoViaje("van_completa")}
-              style={{ width:"100%", opacity:sinCupoPrivado?0.55:1, cursor:sinCupoPrivado?"not-allowed":"pointer", pointerEvents:sinCupoPrivado?"none":"auto" }}
-            >
-              <div style={S.tarifaIco}><IcoVan size={30} c={tipoViaje==="van_completa"?"#1a1611":"#9a9080"}/></div>
-              <div style={{ flex:1, textAlign:"left", minWidth:0 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  <span style={{ fontWeight:700, fontSize:"1rem", color:"#1a1611" }}>Van privada</span>
-                  <span style={{ ...S.badge, background:"#3d2e1e" }}>Exclusiva</span>
-                </div>
-                <div style={{ fontSize:"0.75rem", color:"#9a9080", marginTop:3 }}>
-                  {sinCupoPrivado ? "Sin disponibilidad en esta fecha" : `12 - 15 · ${rutaData?.duracion||""}`}
-                </div>
-              </div>
-              <div style={{ textAlign:"right", flexShrink:0 }}>
-                <div style={{ fontWeight:800, fontSize:"1.25rem", color:"#1a1611" }}>{rutaData ? precio(precioVan) : "—"}</div>
-                {!sinCupoPrivado && <div style={{ fontSize:"0.7rem", color:"#9a9080" }}>van completa</div>}
-              </div>
-            </button>
-            {sinCupoPrivado && (
-              <div style={{ position:"absolute", top:18, right:-30, width:165, background:"#c0290e", color:"#ffffff", fontSize:"0.68rem", fontWeight:800, fontFamily:"'DM Sans',sans-serif", textAlign:"center", padding:"5px 0", transform:"rotate(38deg)", letterSpacing:"0.07em", boxShadow:"0 2px 10px rgba(192,41,14,0.4)", pointerEvents:"none", zIndex:10, textTransform:"uppercase" }}>
-                ¡Sin cupo!
-              </div>
-            )}
-          </div>
-        </div>
-
-        {tipoViaje && (
-          <div style={{ display:"flex", alignItems:"flex-start", gap:8, marginTop:14, padding:"10px 14px", background:"#F5EDD8", borderRadius:12, border:"1px solid #E8D8B0" }} className="fade-in">
-            <span style={{ fontSize:"1rem" }}>{tipoViaje==="compartido" ? "🙌" : "🔒"}</span>
-            <p style={{ fontSize:"0.76rem", color:"#6b5e4e", lineHeight:1.5 }}>
-              {tipoViaje==="compartido"
-                ? "Sin costo hasta que se confirme el viaje. Te avisamos por WhatsApp."
-                : "Se confirma con el 50% de abono. El resto se paga al viajar."}
-            </p>
-          </div>
-        )}
-
-        <button className="btn-confirmar" style={{ marginTop:16 }} disabled={!tipoViaje} onClick={() => ir("confirmar")}>
-          {!tipoViaje ? "Selecciona un viaje"
-            : tipoViaje==="compartido" ? `Reservar asiento — ${precio(precioPersona * pasajeros)}`
-            : `Reservar van — ${precio(precioVan * 0.5)} abono`}
-        </button>
-        <p style={{ textAlign:"center", fontSize:"0.72rem", color:"#C8BEA8", marginTop:10 }}>Sin costo adicional por reservar</p>
-      </div>
-    </div>
-  );
-
-  // ════════════════════════════════════════════════════════════════════════════
   // PANTALLA: INICIO
   // ════════════════════════════════════════════════════════════════════════════
   return (
     <div ref={topRef} style={S.root}>
       <style>{css}</style>
       <div style={S.wrap}>
+
+        {/* ── Saludo ── */}
         <div style={S.saludoRow} className="fade-in">
           <div style={{ flex:1, minWidth:0 }}>
             <p style={S.saludoSub}>{usuario ? `Hola, ${usuario.nombre.split(" ")[0]} 👋` : "¿A dónde viajas?"}</p>
@@ -782,45 +799,273 @@ export default function Reservas() {
           {usuario && <div style={S.avatar}>{usuario.avatar}</div>}
         </div>
 
+        {/* ── Inputs de lugar ── */}
         <div style={{ display:"flex", flexDirection:"column", gap:8, position:"relative", zIndex:50 }} className="fade-in">
-          <LugarInput placeholder="Punto de partida" value={origen} onChange={val => { setOrigen(val); setDestino(null); }} dotStyle="origen" historial={historial} onEliminarHistorial={eliminar}/>
+          <LugarInput
+            placeholder="Punto de partida"
+            value={origen}
+            onChange={val => { setOrigen(val); setDestino(null); }}
+            dotStyle="origen"
+            historial={historial}
+            onEliminarHistorial={eliminar}
+          />
           <div style={S.arrowSep}>
-            <button style={S.swapBtn} onClick={() => { const tmp=origen; setOrigen(destino); setDestino(tmp); }} disabled={!origen && !destino}>
+            <button
+              style={S.swapBtn}
+              onClick={() => { const tmp=origen; setOrigen(destino); setDestino(tmp); }}
+              disabled={!origen && !destino}
+            >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M7 16V4m0 0L3 8m4-4l4 4"/><path d="M17 8v12m0 0l4-4m-4 4l-4-4"/>
               </svg>
             </button>
           </div>
-          <LugarInput placeholder="¿A dónde vas?" value={destino} onChange={setDestino} dotStyle="destino" disabled={!origen} historial={historial} onEliminarHistorial={eliminar}/>
+          <LugarInput
+            placeholder="¿A dónde vas?"
+            value={destino}
+            onChange={setDestino}
+            dotStyle="destino"
+            disabled={!origen}
+            historial={historial}
+            onEliminarHistorial={eliminar}
+          />
         </div>
 
-        <div style={{ display:"flex", gap:8, marginTop:10 }} className="fade-in">
-          <DatePicker fecha={fecha} setFecha={setFecha} hoy={hoy} fmt={fmt} />
-          <HoraPicker hora={hora} setHora={setHora} horas={HORAS_BASE} label="Hora salida" />
-        </div>
+        {/* ── Tarjetas de tipo de servicio (Transfer / Van Privada) ── */}
+        <div style={{ display:"flex", gap:8, marginTop:8 }} className="fade-in">
+          {[
+            { id:"compartido",   icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="8" width="15" height="10" rx="2"/><path d="M16 11l5 2v5h-5V11z"/><circle cx="5.5" cy="18.5" r="1.5"/><circle cx="18.5" cy="18.5" r="1.5"/></svg>, label:"Transfer",   p: rutaData ? precio(precioPersona) : calculando ? "…" : null, sub:"por pasajero" },
+            { id:"van_completa", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17H3a2 2 0 01-2-2V7a2 2 0 012-2h11l5 7v5h-2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M9 5v7h11"/></svg>, label:"Van Privada", p: rutaData ? precio(precioVan)     : calculando ? "…" : null, sub:"van completa" },
+          ].map(op => {
+            const bloqueada = op.id === "compartido" && sinCupoCompartido;
+            return (
+            <div
+              key={op.id}
+              style={{
+                flex:1, padding:"12px 14px", borderRadius:12,
+                border: bloqueada
+                  ? "1.5px solid #D4CBB8"
+                  : tipoViaje===op.id ? "2px solid #1a1611" : "1.5px solid #D4CBB8",
+                background: bloqueada ? "#F5F2EC" : tipoViaje===op.id ? "#1a1611" : "#EDE5D0",
+                cursor: bloqueada ? "not-allowed" : "pointer",
+                transition:"all .18s",
+                display:"flex", flexDirection:"column", gap:6,
+                opacity: bloqueada ? 0.7 : 1,
+                position:"relative", overflow:"hidden",
+              }}
+              onClick={() => !bloqueada && setTipoViaje(op.id)}
+            >
+              {/* Banda "Sin cupo" cuando está bloqueada */}
+              {bloqueada && (
+                <div style={{
+                  position:"absolute", top:10, right:-20,
+                  color:"#ef4444",
+                  fontSize:"0.58rem", fontWeight:800, letterSpacing:"0.08em",
+                  padding:"2px 28px", transform:"rotate(35deg)",
+                  textTransform:"uppercase", pointerEvents:"none",
+                }}>
+                  Sin cupo
+                </div>
+              )}
 
-        <div style={{ marginTop:8 }} className="fade-in">
-          <TipoRutaPicker tipoRuta={tipoRuta} setTipoRuta={setTipoRuta} />
-        </div>
+              <span style={{ fontSize:"0.82rem", fontWeight:700, color: bloqueada ? "#B8AFA0" : tipoViaje===op.id?"#F5EDD8":"#6b5e4e", display:"flex", alignItems:"center", gap:6 }}>
+                <span style={{ opacity: bloqueada ? 0.5 : 1, color: bloqueada ? "#B8AFA0" : tipoViaje===op.id ? "#F5EDD8" : "#6b5e4e" }}>
+                  {op.icon}
+                </span>
+                {op.label}
+              </span>
 
+              {/* Texto de fecha bloqueada */}
+              {bloqueada && fecha && (
+                <span style={{ fontSize:"0.72rem", color:"#B8AFA0", fontWeight:500 }}>
+                  Sin disponibilidad · {new Date(fecha+"T12:00:00").toLocaleDateString("es-CL",{day:"numeric",month:"short"})}
+                </span>
+              )}
+
+              {/* ── Fecha + Hora (iconos clicables) ── */}
+              <div onClick={e => e.stopPropagation()} style={{ display:"flex", alignItems:"center", gap:8 }}>
+
+                {/* Ícono calendario + texto día/mes */}
+                <div style={{ position:"relative", display:"flex", alignItems:"center", gap:5, cursor:"pointer" }}>
+                  <div className={origen && destino && tipoViaje===op.id && !(op.id==="van_completa"?fechaVan:fechaComp) && !bloqueada ? "ico-pulse-red" : ""}>
+                    <IcoCal size={22} c={(() => {
+                      const f = op.id === "van_completa" ? fechaVan : fechaComp;
+                      if (bloqueada) return "#C8BEA8";
+                      if (origen && destino && tipoViaje===op.id && !f) return "#ef4444";
+                      if (tipoViaje===op.id && f) return "#22c55e";
+                      if (tipoViaje===op.id) return "#F5EDD8";
+                      return "#9a9080";
+                    })()}/>
+                  </div>
+                  {(op.id === "van_completa" ? fechaVan : fechaComp) && (
+                    <span style={{
+                      fontSize:"0.78rem", fontWeight:700, lineHeight:1,
+                      color: bloqueada ? "#B8AFA0" : tipoViaje===op.id ? "#F5EDD8" : "#1a1611",
+                      pointerEvents:"none",
+                    }}>
+                      {new Date((op.id === "van_completa" ? fechaVan : fechaComp) + "T12:00:00").toLocaleDateString("es-CL", { day:"numeric", month:"short" })}
+                    </span>
+                  )}
+                  <input
+                    type="date"
+                    min={hoy}
+                    value={op.id === "van_completa" ? fechaVan : fechaComp}
+                    onChange={e => op.id === "van_completa" ? setFechaVan(e.target.value) : setFechaComp(e.target.value)}
+                    style={{ position:"absolute", opacity:0, cursor:"pointer", top:0, left:0, width:"100%", height:"100%", fontSize:16 }}
+                  />
+                </div>
+
+                <div style={{ width:1, height:16, background: tipoViaje===op.id?"rgba(245,237,216,0.3)":"#D4CBB8", flexShrink:0 }}/>
+
+                {/* Ícono reloj + texto hora */}
+                <div style={{ position:"relative", display:"flex", alignItems:"center", gap:5, cursor:"pointer" }}>
+                  <div className={origen && destino && tipoViaje===op.id && !!(op.id==="van_completa"?fechaVan:fechaComp) && !(op.id==="van_completa"?horaVan:horaComp) ? "ico-pulse-red" : ""}>
+                    <svg
+                      width="22" height="22" viewBox="0 0 24 24" fill="none"
+                      stroke={(() => {
+                        const f = op.id === "van_completa" ? fechaVan : fechaComp;
+                        const h = op.id === "van_completa" ? horaVan  : horaComp;
+                        if (bloqueada) return "#C8BEA8";
+                        if (origen && destino && tipoViaje===op.id && f && !h) return "#ef4444";
+                        if (tipoViaje===op.id && h) return "#22c55e";
+                        if (tipoViaje===op.id) return "#F5EDD8";
+                        return "#9a9080";
+                      })()}
+                      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+                    </svg>
+                  </div>
+                  {(op.id === "van_completa" ? horaVan : horaComp) && (
+                    <span style={{
+                      fontSize:"0.78rem", fontWeight:700, lineHeight:1,
+                      color: tipoViaje===op.id ? "#F5EDD8" : "#1a1611",
+                      pointerEvents:"none",
+                    }}>
+                      {op.id === "van_completa" ? horaVan : horaComp}
+                    </span>
+                  )}
+                  <select
+                    value={op.id === "van_completa" ? horaVan : horaComp}
+                    onChange={e => op.id === "van_completa" ? setHoraVan(e.target.value) : setHoraComp(e.target.value)}
+                    style={{ position:"absolute", opacity:0, cursor:"pointer", top:0, left:0, width:"100%", height:"100%", fontSize:16 }}
+                  >
+                    <option value="">—</option>
+                    {HORAS_BASE.map(h => <option key={h} value={h}>{h}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Precio + contador pasajeros (solo Transfer) */}
+              <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", marginTop:2 }}>
+                <div style={{ display:"flex", flexDirection:"column", gap:1 }}>
+                  {op.p && (
+                    <span style={{ fontSize:"1.1rem", fontWeight:800, lineHeight:1, color: tipoViaje===op.id?"#F5EDD8":"#1a1611" }}>
+                      {op.p}
+                    </span>
+                  )}
+                  <span style={{ fontSize:"0.72rem", color: tipoViaje===op.id?"rgba(245,237,216,0.7)":"#9a9080" }}>
+                    {op.sub}
+                  </span>
+                </div>
+
+                {op.id === "compartido" && (
+                  <div
+                    onClick={e => e.stopPropagation()}
+                    style={{ display:"flex", alignItems:"center", gap:3 }}
+                  >
+                    {/* Botón − */}
+                    <button
+                      onClick={() => setPasajeros(p => Math.max(1, p - 1))}
+                      disabled={pasajeros <= 1}
+                      style={{
+                        width:20, height:20, borderRadius:6,
+                        border:"none",
+                        background:"transparent",
+                        color: tipoViaje===op.id ? "rgba(245,237,216,0.5)" : "#B8AFA0",
+                        fontSize:"1rem", fontWeight:400, lineHeight:1,
+                        cursor: pasajeros <= 1 ? "not-allowed" : "pointer",
+                        opacity: pasajeros <= 1 ? 0.3 : 1,
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        transition:"all .15s", flexShrink:0, padding:0,
+                      }}
+                    >−</button>
+
+                    {/* Ícono persona + número */}
+                    <div style={{ display:"flex", alignItems:"center", gap:3 }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                        stroke={tipoViaje===op.id ? "#F5EDD8" : "#1a1611"}
+                        strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+                        <circle cx="12" cy="7" r="4"/>
+                      </svg>
+                      <span style={{
+                        fontSize:"0.85rem", fontWeight:800, lineHeight:1,
+                        color: tipoViaje===op.id ? "#F5EDD8" : "#1a1611",
+                        minWidth:12, textAlign:"center",
+                      }}>
+                        {pasajeros}
+                      </span>
+                    </div>
+
+                    {/* Botón + */}
+                    <button
+                      onClick={() => setPasajeros(p => Math.min(MAX_ASIENTOS, p + 1))}
+                      disabled={pasajeros >= MAX_ASIENTOS}
+                      style={{
+                        width:20, height:20, borderRadius:6,
+                        border:"none",
+                        background:"transparent",
+                        color: tipoViaje===op.id ? "rgba(245,237,216,0.5)" : "#B8AFA0",
+                        fontSize:"1rem", fontWeight:400, lineHeight:1,
+                        cursor: pasajeros >= MAX_ASIENTOS ? "not-allowed" : "pointer",
+                        opacity: pasajeros >= MAX_ASIENTOS ? 0.3 : 1,
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        transition:"all .15s", flexShrink:0, padding:0,
+                      }}
+                    >+</button>
+                  </div>
+                )}
+              </div>
+            </div>
+            );
+          })}
+        </div>
+        {/* ── FIN tarjetas ── */}
+
+        {/* ── Regreso (ida y vuelta) ── */}
         {esIdaVuelta && (
           <div style={S.regresoBox} className="fade-in">
             <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
               <span style={{ fontSize:"0.75rem", fontWeight:700, color:"#1a1611", letterSpacing:"0.03em" }}>🔄 REGRESO — mismo día</span>
-              {fecha && <span style={{ fontSize:"0.7rem", color:"#9a9080", background:"#E8E0D0", padding:"2px 8px", borderRadius:99 }}>{fmt(fecha).split(",")[0]}</span>}
+              {fecha && (
+                <span style={{ fontSize:"0.7rem", color:"#9a9080", background:"#E8E0D0", padding:"2px 8px", borderRadius:99 }}>
+                  {fmt(fecha).split(",")[0]}
+                </span>
+              )}
             </div>
             <div style={{ opacity:horaFlexible?0.4:1, transition:"opacity .2s", pointerEvents:horaFlexible?"none":"auto" }}>
-              <HoraPicker hora={horaRegreso} setHora={setHoraRegreso} horas={horasRetorno(hora)} label="Hora de regreso"
+              <HoraPicker
+                hora={horaRegreso}
+                setHora={setHoraRegreso}
+                horas={horasRetorno(hora)}
+                label="Hora de regreso"
                 placeholder={hora ? (horasRetorno(hora)[0] ? `Desde las ${horasRetorno(hora)[0]}` : "Sin horas disponibles") : "Elige hora de salida primero"}
-                disabled={!hora || horaFlexible}/>
+                disabled={!hora || horaFlexible}
+              />
             </div>
-            <button onClick={() => { setHoraFlexible(v => !v); if (!horaFlexible) setHoraRegreso(""); }}
-              style={{ display:"flex", alignItems:"center", gap:10, background:"none", border:"none", cursor:"pointer", padding:"10px 0 0", fontFamily:"'DM Sans',sans-serif" }}>
+            <button
+              onClick={() => { setHoraFlexible(v => !v); if (!horaFlexible) setHoraRegreso(""); }}
+              style={{ display:"flex", alignItems:"center", gap:10, background:"none", border:"none", cursor:"pointer", padding:"10px 0 0", fontFamily:"'DM Sans',sans-serif" }}
+            >
               <div style={{ width:38, height:22, borderRadius:11, background:horaFlexible?"#1a1611":"#D4CBB8", position:"relative", transition:"background .2s", flexShrink:0 }}>
                 <div style={{ position:"absolute", top:3, left:horaFlexible?19:3, width:16, height:16, borderRadius:"50%", background:"#fff", transition:"left .2s", boxShadow:"0 1px 3px rgba(0,0,0,.2)" }}/>
               </div>
               <span style={{ fontSize:"0.78rem", color:horaFlexible?"#1a1611":"#9a9080", fontWeight:horaFlexible?700:400, textAlign:"left", lineHeight:1.4 }}>
-                {horaFlexible ? <>Hora flexible — <span style={{ color:"#1a1611" }}>coordinamos por WhatsApp</span></> : "No sé la hora exacta de regreso"}
+                {horaFlexible
+                  ? <>Hora flexible — <span style={{ color:"#1a1611" }}>coordinamos por WhatsApp</span></>
+                  : "No sé la hora exacta de regreso"
+                }
               </span>
             </button>
           </div>
@@ -833,27 +1078,86 @@ export default function Reservas() {
           </div>
         )}
 
-        <button className="btn-confirmar" style={{ marginTop:14 }}
-          disabled={!origen || !destino || !fecha || !hora || calculando || (esIdaVuelta && !horaFlexible && !horaRegreso)}
-          onClick={verTarifas}>
-          {calculando ? <><span className="btn-spinner" style={{marginRight:8}}/> Calculando…</> : "Ver tarifas"}
-        </button>
+        {/* ── Botón principal ── */}
+        <div style={{ marginTop:14, display:"flex", flexDirection:"column", gap:6 }}>
+          <button
+            className={enviando ? "btn-confirmar btn-confirmar-loading" : "btn-confirmar"}
+            disabled={
+              !origen || !destino || !fecha || !hora || !tipoViaje || calculando || enviando ||
+              (esIdaVuelta && !horaFlexible && !horaRegreso) ||
+              (tipoViaje === "compartido" && sinCupoCompartido)
+            }
+            onClick={reservarDirecto}
+          >
+            {enviando
+              ? <><span className="btn-spinner" style={{ marginRight:8 }}/> Procesando…</>
+              : calculando
+                ? <><span className="btn-spinner" style={{ marginRight:8 }}/> Calculando…</>
+                : !tipoViaje
+                  ? "Selecciona Transfer o Van Privada"
+                  : tipoViaje === "compartido"
+                    ? rutaData ? `Reservar asiento — ${precio(precioPersona * pasajeros)}` : "Reservar asiento"
+                    : rutaData ? `Pagar abono — ${precio(precioVan * 0.5)}` : "Reservar van"
+            }
+          </button>
+          {tipoViaje === "compartido" && origen && destino && (
+            <p style={{ textAlign:"center", fontSize:"0.72rem", color:"#9a9080", lineHeight:1.5 }}>
+              Sin costo ahora · Confirmamos cuando se llene el cupo de {MAX_ASIENTOS} pax
+            </p>
+          )}
+          {tipoViaje === "van_completa" && origen && destino && (
+            <p style={{ textAlign:"center", fontSize:"0.70rem", color:"#9a9080", lineHeight:1.5 }}>
+              Pago seguro vía Flow.cl · El resto lo pagas el día del viaje
+            </p>
+          )}
+          {error && <div style={S.errBox}>⚠️ {error}</div>}
+        </div>
 
+        {/* ── Mensajes de validación ── */}
+        {!tipoViaje && origen && destino && fecha && hora && (
+          <p style={{ textAlign:"center", fontSize:"0.72rem", color:"#c0290e", marginTop:6 }}>
+            Elige Transfer o Van Privada para continuar
+          </p>
+        )}
         {esIdaVuelta && !horaFlexible && !horaRegreso && hora && (
-          <p style={{ textAlign:"center", fontSize:"0.72rem", color:"#c0290e", marginTop:6 }}>Elige hora de regreso o activa "No sé la hora exacta"</p>
+          <p style={{ textAlign:"center", fontSize:"0.72rem", color:"#c0290e", marginTop:6 }}>
+            Elige hora de regreso o activa "No sé la hora exacta"
+          </p>
         )}
 
+        {/* ── Destinos ── */}
         <div style={{ marginTop:32 }} className="fade-in">
-          <p style={S.sectionLabel}>Rutas frecuentes</p>
+          <p style={S.sectionLabel}>Destinos</p>
           <div style={{ display:"flex", flexDirection:"column" }}>
             {[
-              { o:PUNTOS_FRECUENTES[0], d:PUNTOS_FRECUENTES[1], label:"Aeropuerto → Pucón",      meta:`~95 km · desde ${precio(paxDesdeVan(95000))}/pax · van ${precio(95000)}` },
-              { o:PUNTOS_FRECUENTES[0], d:PUNTOS_FRECUENTES[2], label:"Aeropuerto → Villarrica", meta:`~80 km · desde ${precio(paxDesdeVan(80000))}/pax · van ${precio(80000)}` },
-              { o:PUNTOS_FRECUENTES[1], d:PUNTOS_FRECUENTES[0], label:"Pucón → Aeropuerto",      meta:`~95 km · desde ${precio(paxDesdeVan(95000))}/pax · van ${precio(95000)}` },
-              { o:PUNTOS_FRECUENTES[2], d:PUNTOS_FRECUENTES[0], label:"Villarrica → Aeropuerto", meta:`~80 km · desde ${precio(paxDesdeVan(80000))}/pax · van ${precio(80000)}` },
+              { o:PUNTOS_FRECUENTES[0], d:PUNTOS_FRECUENTES[1], label:"Temuco ZCO → Pucón",        meta:`~95 km · desde ${precio(paxDesdeVan(95000))}/pax · van ${precio(95000)}`,  ico:"plane"    },
+              { o:PUNTOS_FRECUENTES[0], d:PUNTOS_FRECUENTES[2], label:"Temuco ZCO → Villarrica",   meta:`~80 km · desde ${precio(paxDesdeVan(80000))}/pax · van ${precio(80000)}`,  ico:"plane"    },
+              { o:PUNTOS_FRECUENTES[0], d:PUNTOS_FRECUENTES[3], label:"Temuco ZCO → Panguipulli",  meta:`~110 km · desde ${precio(paxDesdeVan(110000))}/pax · van ${precio(110000)}`, ico:"plane"  },
+              { o:PUNTOS_FRECUENTES[0], d:PUNTOS_FRECUENTES[4], label:"Temuco ZCO → Valdivia",     meta:`~140 km · desde ${precio(paxDesdeVan(140000))}/pax · van ${precio(140000)}`, ico:"plane"  },
+              { o:PUNTOS_FRECUENTES[0], d:PUNTOS_FRECUENTES[5], label:"Temuco ZCO → Victoria",     meta:`~90 km · desde ${precio(paxDesdeVan(90000))}/pax · van ${precio(90000)}`,  ico:"plane"    },
+              { o:PUNTOS_FRECUENTES[1], d:PUNTOS_FRECUENTES[0], label:"Pucón → Temuco ZCO",        meta:`~95 km · desde ${precio(paxDesdeVan(95000))}/pax · van ${precio(95000)}`,  ico:"mountain" },
+              { o:PUNTOS_FRECUENTES[2], d:PUNTOS_FRECUENTES[0], label:"Villarrica → Temuco ZCO",   meta:`~80 km · desde ${precio(paxDesdeVan(80000))}/pax · van ${precio(80000)}`,  ico:"city"     },
+              { o:PUNTOS_FRECUENTES[3], d:PUNTOS_FRECUENTES[0], label:"Panguipulli → Temuco ZCO",  meta:`~110 km · desde ${precio(paxDesdeVan(110000))}/pax · van ${precio(110000)}`, ico:"city"   },
+              { o:PUNTOS_FRECUENTES[4], d:PUNTOS_FRECUENTES[0], label:"Valdivia → Temuco ZCO",     meta:`~140 km · desde ${precio(paxDesdeVan(140000))}/pax · van ${precio(140000)}`, ico:"city"   },
             ].map((r,i) => (
               <button key={i} className="ruta-row" onClick={() => { setOrigen(r.o); setDestino(r.d); }}>
-                <div style={S.rutaIcoSmall}>{r.o.id==="aeropuerto"?"✈️":r.o.id==="pucon"?"🏔️":"🌋"}</div>
+                <div style={S.rutaIcoSmall}>
+                  {r.ico === "plane" && (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9a9080" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 00-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
+                    </svg>
+                  )}
+                  {r.ico === "mountain" && (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9a9080" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 20l6-12 3 5 3-3 6 10H3z"/>
+                    </svg>
+                  )}
+                  {r.ico === "city" && (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9a9080" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 21h18M9 21V7l6-4v18M9 11h6M9 15h6M9 19h6"/>
+                    </svg>
+                  )}
+                </div>
                 <div style={{ flex:1, textAlign:"left", minWidth:0 }}>
                   <div style={{ fontWeight:600, fontSize:"0.88rem", color:"#1a1611" }}>{r.label}</div>
                   <div style={{ fontSize:"0.72rem", color:"#9a9080", marginTop:2 }}>{r.meta}</div>
@@ -863,79 +1167,47 @@ export default function Reservas() {
             ))}
           </div>
         </div>
+
       </div>
     </div>
   );
 }
 
-// ── DatePicker ────────────────────────────────────────────────────────────────
-function DatePicker({ fecha, setFecha, hoy, fmt }) {
-  const inputRef = useRef(null);
-  const textoFecha = fecha ? (() => {
-    const [y,m,d] = fecha.split("-"), date = new Date(y,m-1,d);
-    return `${date.toLocaleDateString("es-CL",{weekday:"short"})} ${date.getDate()} ${date.toLocaleDateString("es-CL",{month:"short"})}`;
-  })() : "Elige día";
-  const abrir = () => {
-    const inp = inputRef.current; if (!inp) return;
-    if (inp.showPicker) { try { inp.showPicker(); } catch(e) { inp.focus(); } } else inp.focus();
-  };
-  return (
-    <div style={{ ...S.pill, flex:1, cursor:"pointer" }} onClick={abrir}>
-      <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-        <IcoCal size={13} c="#9a9080"/>
-        <span style={{ fontSize:"0.72rem", color:"#9a9080", fontWeight:600, letterSpacing:"0.02em" }}>Fecha</span>
-      </div>
-      <span style={{ fontWeight:fecha?700:400, fontSize:"0.9rem", color:fecha?"#1a1611":"#9a9080" }}>{textoFecha}</span>
-      <input ref={inputRef} type="date" min={hoy} value={fecha} onChange={e => setFecha(e.target.value)}
-        style={{ position:"absolute", opacity:0, pointerEvents:"none", width:0, height:0, top:0, left:0 }} tabIndex={-1}/>
-    </div>
-  );
-}
-
-// ── HoraPicker ────────────────────────────────────────────────────────────────
+// ── HoraPicker (usado solo en regreso) ────────────────────────────────────────
 function HoraPicker({ hora, setHora, horas=HORAS_BASE, label="Hora", placeholder="Elige hora", disabled=false }) {
   const selectRef = useRef(null);
   return (
-    <div style={{ ...S.pill, flex:1, cursor:disabled?"not-allowed":"pointer", opacity:disabled?0.5:1 }}
-      onClick={() => !disabled && selectRef.current?.focus()}>
+    <div
+      style={{ ...S.pill, flex:1, cursor:disabled?"not-allowed":"pointer", opacity:disabled?0.5:1 }}
+      onClick={() => !disabled && selectRef.current?.focus()}
+    >
       <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9a9080" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9a9080" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+        </svg>
         <span style={{ fontSize:"0.72rem", color:"#9a9080", fontWeight:600, letterSpacing:"0.02em" }}>{label}</span>
       </div>
       <div style={{ position:"relative", display:"flex", alignItems:"center" }}>
-        <select ref={selectRef} value={hora} onChange={e => setHora(e.target.value)} disabled={disabled}
-          style={{ ...S.select, fontWeight:hora?700:400, color:hora?"#1a1611":"#9a9080", fontSize:"0.9rem", paddingRight:16 }}>
+        <select
+          ref={selectRef}
+          value={hora}
+          onChange={e => setHora(e.target.value)}
+          disabled={disabled}
+          style={{ ...S.select, fontWeight:hora?700:400, color:hora?"#1a1611":"#9a9080", fontSize:"0.9rem", paddingRight:16 }}
+        >
           <option value="">{placeholder}</option>
           {horas.map(h => <option key={h} value={h}>{h}</option>)}
         </select>
-        <svg style={{ position:"absolute", right:0, pointerEvents:"none" }} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9a9080" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        <svg style={{ position:"absolute", right:0, pointerEvents:"none" }} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9a9080" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
       </div>
-    </div>
-  );
-}
-
-// ── TipoRutaPicker ────────────────────────────────────────────────────────────
-function TipoRutaPicker({ tipoRuta, setTipoRuta }) {
-  return (
-    <div style={{ display:"flex", gap:8 }}>
-      {[{ id:"ida", label:"✈️ Solo ida" }, { id:"ida_vuelta", label:"🔄 Ida y vuelta" }].map(op => (
-        <button key={op.id} onClick={() => setTipoRuta(op.id)} style={{
-          flex:1, padding:"10px 14px", borderRadius:12,
-          border: tipoRuta===op.id ? "2px solid #1a1611" : "1.5px solid #D4CBB8",
-          background: tipoRuta===op.id ? "#1a1611" : "#EDE5D0",
-          color: tipoRuta===op.id ? "#F5EDD8" : "#6b5e4e",
-          fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem",
-          fontWeight: tipoRuta===op.id ? 700 : 500,
-          cursor:"pointer", transition:"all .18s", whiteSpace:"nowrap",
-        }}>{op.label}</button>
-      ))}
     </div>
   );
 }
 
 // ── LugarInput ────────────────────────────────────────────────────────────────
 const EJEMPLOS_DIRECCIONES = [
-  "Los Leones 01256, Temuco","Av. Alemania 0480, Temuco",
   "O'Higgins 310, Villarrica","Urrutia 477, Pucón",
   "Caupolicán 285, Temuco","Freire 250, Villarrica",
   "Colo-Colo 355, Temuco","Lincoyan 542, Pucón",
@@ -1017,15 +1289,21 @@ function LugarInput({ placeholder, value, onChange, dotStyle, disabled, historia
         <div style={S.searchRow}>
           {dot}
           <div style={{ flex:1, position:"relative", display:"flex", alignItems:"center", overflow:"hidden" }}>
-            <input ref={inputRef} value={query}
+            <input
+              ref={inputRef}
+              value={query}
               onChange={e => { setQuery(e.target.value); setAbierto(true); }}
               onFocus={() => { setActivo(true); setAbierto(true); }}
               onBlur={() => setTimeout(() => { if (!wrapRef.current?.contains(document.activeElement)) { setActivo(false); setAbierto(false); } }, 150)}
-              placeholder={activo ? placeholder : ""} disabled={disabled} autoComplete="off"
+              placeholder={activo ? placeholder : ""}
+              disabled={disabled}
+              autoComplete="off"
               style={{ width:"100%", background:"transparent", border:"none", outline:"none", fontSize:"0.95rem", fontFamily:"'DM Sans',sans-serif", fontWeight:value?600:400, color:value?"#1a1611":"#9a9080" }}
             />
             {dotStyle==="origen" && !value && !query && !activo && !geolocando && (
-              <div style={{ position:"absolute", left:0, right:0, top:0, bottom:0, display:"flex", alignItems:"center", pointerEvents:"none", overflow:"hidden" }}><PlaceholderTicker/></div>
+              <div style={{ position:"absolute", left:0, right:0, top:0, bottom:0, display:"flex", alignItems:"center", pointerEvents:"none", overflow:"hidden" }}>
+                <PlaceholderTicker/>
+              </div>
             )}
             {dotStyle==="origen" && geolocando && !value && (
               <div style={{ position:"absolute", left:0, display:"flex", alignItems:"center", gap:6, pointerEvents:"none" }}>
@@ -1036,15 +1314,22 @@ function LugarInput({ placeholder, value, onChange, dotStyle, disabled, historia
           </div>
           {buscando && <span className="btn-spinner" style={{ width:14, height:14, borderWidth:1.5, borderTopColor:"#9a9080", borderColor:"#D4CBB8", flexShrink:0 }}/>}
           {value && !buscando && (
-            <button onMouseDown={e => { e.preventDefault(); onChange(null); setQuery(""); setResultados([]); }}
-              style={{ background:"none", border:"none", cursor:"pointer", width:44, height:44, display:"flex", alignItems:"center", justifyContent:"center", color:"#C8BEA8", fontSize:"1.1rem", flexShrink:0 }}>×</button>
+            <button
+              onMouseDown={e => { e.preventDefault(); onChange(null); setQuery(""); setResultados([]); }}
+              style={{ background:"none", border:"none", cursor:"pointer", width:44, height:44, display:"flex", alignItems:"center", justifyContent:"center", color:"#C8BEA8", fontSize:"1.1rem", flexShrink:0 }}
+            >×</button>
           )}
           {dotStyle==="origen" && !value && !buscando && (
-            <button onMouseDown={e => { e.preventDefault(); ubicarme(false); }}
-              style={{ background:"none", border:"none", cursor:geolocando?"wait":"pointer", width:44, height:44, display:"flex", alignItems:"center", justifyContent:"center", color:geolocando?"#C8BEA8":"#9a9080", flexShrink:0 }}>
+            <button
+              onMouseDown={e => { e.preventDefault(); ubicarme(false); }}
+              style={{ background:"none", border:"none", cursor:geolocando?"wait":"pointer", width:44, height:44, display:"flex", alignItems:"center", justifyContent:"center", color:geolocando?"#C8BEA8":"#9a9080", flexShrink:0 }}
+            >
               {geolocando
                 ? <span className="btn-spinner" style={{ width:14, height:14, borderWidth:1.5, borderTopColor:"#9a9080", borderColor:"#D4CBB8" }}/>
-                : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8" strokeDasharray="2 3"/></svg>
+                : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+                    <circle cx="12" cy="12" r="8" strokeDasharray="2 3"/>
+                  </svg>
               }
             </button>
           )}
@@ -1073,8 +1358,10 @@ function LugarInput({ placeholder, value, onChange, dotStyle, disabled, historia
                     {h.sub && <div style={{ fontSize:"0.72rem", color:"#9a9080", marginTop:1 }}>{h.sub}</div>}
                   </div>
                 </button>
-                <button onMouseDown={e => { e.preventDefault(); e.stopPropagation(); onEliminarHistorial?.(h.label); }}
-                  style={{ background:"none", border:"none", cursor:"pointer", width:44, height:44, display:"flex", alignItems:"center", justifyContent:"center", color:"#C8BEA8", fontSize:"1rem", flexShrink:0 }}>×</button>
+                <button
+                  onMouseDown={e => { e.preventDefault(); e.stopPropagation(); onEliminarHistorial?.(h.label); }}
+                  style={{ background:"none", border:"none", cursor:"pointer", width:44, height:44, display:"flex", alignItems:"center", justifyContent:"center", color:"#C8BEA8", fontSize:"1rem", flexShrink:0 }}
+                >×</button>
               </div>
             ))}
           </>)}
@@ -1182,9 +1469,6 @@ const css = `
   .btn-wa:hover { background: #16a34a; }
   .btn-ghost { width:100%; padding:14px; background:transparent; color:#9a9080; border:1.5px solid #D4CBB8; border-radius:14px; font-size:0.88rem; font-weight:600; font-family:'DM Sans',sans-serif; cursor:pointer; transition:all .2s; }
   .btn-ghost:hover { border-color:#9a9080; color:#3d3629; }
-  .tarifa-card { display:flex; align-items:center; gap:14px; padding:1.1rem 1.15rem; border-radius:16px; border:1.5px solid #D4CBB8; background:#EDE5D0; cursor:pointer; transition:all .2s; font-family:'DM Sans',sans-serif; text-align:left; width:100%; }
-  .tarifa-card:hover { border-color:#9a9080; background:#E8E0D0; }
-  .tarifa-on { border-color:#1a1611 !important; background:#F5EDD8 !important; box-shadow:0 0 0 2px #1a1611; }
   .pago-opt { display:flex; flex-direction:column; gap:4px; padding:1rem; border-radius:14px; border:1.5px solid #D4CBB8; background:#EDE5D0; color:#1a1611; cursor:pointer; transition:all .2s; font-family:'DM Sans',sans-serif; text-align:left; }
   .pago-opt:hover { border-color:#9a9080; }
   .pago-opt-on { border-color:#1a1611 !important; background:#1a1611 !important; color:#F5EDD8 !important; }
@@ -1200,6 +1484,10 @@ const css = `
   .btn-spinner { width:17px; height:17px; border-radius:50%; border:2px solid rgba(255,255,255,.35); border-top-color:#fff; animation:spin .7s linear infinite; display:inline-block; flex-shrink:0; }
   .drop-item { display:flex; align-items:center; gap:12px; width:100%; padding:10px 16px; background:transparent; border:none; cursor:pointer; transition:background .15s; font-family:'DM Sans',sans-serif; min-height:44px; }
   .drop-item:hover { background:#FAF7F2; }
+  @keyframes pulseRed { 0%,100% { transform:scale(1); opacity:1; } 50% { transform:scale(1.25); opacity:0.6; } }
+  @keyframes pulseGreen { 0%,100% { transform:scale(1); } 50% { transform:scale(1.3); } }
+  .ico-pulse-red { animation: pulseRed 0.8s ease-in-out infinite; display:inline-flex; }
+  .ico-pulse-green { animation: pulseGreen 0.7s ease-in-out infinite; }
 `;
 
 const S = {
@@ -1228,8 +1516,6 @@ const S = {
   rutaTexto:   { fontSize:"0.88rem", fontWeight:700, color:"#1a1611", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" },
   rutaLinea:   { height:14, width:1, background:"#D4CBB8", margin:"4px 0" },
   pillMeta:    { fontSize:"0.72rem", color:"#9a9080", lineHeight:1.8, whiteSpace:"nowrap" },
-  tarifaIco:   { width:52, height:52, borderRadius:14, background:"#E8E0D0", border:"1px solid #D4CBB8", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 },
-  badge:       { fontSize:"0.65rem", background:"#1a1611", color:"#F5EDD8", padding:"2px 8px", borderRadius:99, fontWeight:700, whiteSpace:"nowrap" },
   section:     { padding:"0.5rem 0 1rem", borderBottom:"1px solid #E8E0D0", marginBottom:"1rem" },
   sectionLabel:{ fontSize:"0.72rem", fontWeight:700, color:"#9a9080", letterSpacing:"0.06em", marginBottom:"0.6rem" },
   aviso:       { display:"flex", gap:10, background:"rgba(245,193,7,0.1)", border:"1px solid rgba(245,193,7,0.3)", borderRadius:12, padding:"0.9rem", marginBottom:"1rem" },
@@ -1237,7 +1523,7 @@ const S = {
   avatar:      { width:42, height:42, borderRadius:"50%", background:"#1a1611", color:"#F5EDD8", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"0.8rem", fontWeight:800, flexShrink:0 },
   totalBox:    { display:"flex", justifyContent:"space-between", alignItems:"center", padding:"1rem 0", marginBottom:"1rem" },
   errBox:      { padding:"0.8rem 1rem", background:"rgba(192,41,14,0.08)", border:"1px solid rgba(192,41,14,0.2)", borderRadius:10, color:"#c0290e", fontSize:"0.82rem", marginBottom:"0.75rem" },
-  okWrap:      { maxWidth:480, width:"100%", margin:"0 auto", padding:"clamp(2rem,8vw,4rem) clamp(14px,4vw,24px) 80px", display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center", boxSizing:"border-box" },
+  okWrap:      { maxWidth:480, width:"100%", margin:"0 auto", padding:"clamp(1rem,4vw,1.8rem) clamp(14px,4vw,24px) 60px", display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center", boxSizing:"border-box" },
   okCircle:    { width:72, height:72, borderRadius:"50%", background:"#1a1611", display:"flex", alignItems:"center", justifyContent:"center", marginBottom:20 },
   okTitle:     { fontFamily:"'Syne',sans-serif", fontSize:"clamp(1.4rem,5vw,1.8rem)", fontWeight:800, color:"#1a1611", marginBottom:8 },
   okSub:       { fontSize:"0.85rem", color:"#9a9080", lineHeight:1.6, maxWidth:300, marginBottom:24 },
