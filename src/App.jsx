@@ -12,6 +12,7 @@ import Footer from './components/Footer';
 import WhatsAppButton from './components/WhatsAppButton';
 import Reservas from './components/Reservas';
 import ReservationManager from './components/ReservationManager';
+import SocioDashboard from './components/SocioDashboard';
 
 // ─── Landing page pública ─────────────────────────────────────
 const LandingPage = () => (
@@ -37,6 +38,7 @@ const App = () => (
     <Routes>
       <Route path="/"      element={<LandingPage />} />
       <Route path="/admin" element={<ReservationManager />} />
+      <Route path="/socio" element={<SocioDashboard />} />
     </Routes>
   </BrowserRouter>
 );
