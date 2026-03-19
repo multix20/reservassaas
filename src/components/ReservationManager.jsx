@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import supabase from "../lib/supabase";
+import supabase from "../lib/supabaseAdmin";
 
 // ─── Helpers ──────────────────────────────────────────────────
 const fmtPeso       = (n) => `$${Number(n||0).toLocaleString("es-CL")}`;
@@ -29,15 +29,40 @@ const css = `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&family=DM+Sans:wght@300;400;500;600;700&display=swap');
   *{box-sizing:border-box;margin:0;padding:0}
   .rm{font-family:'DM Sans',sans-serif;background:#f7f5f2;min-height:100vh;color:#1a1611}
-  .rm-hdr{background:#1a1611;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
-  .rm-hdr h1{font-family:'DM Sans',sans-serif;font-size:1.1rem;color:#fff;font-weight:700;display:flex;align-items:center;gap:8px}
-  .rm-hdr small{font-size:.68rem;color:#9a8e80;display:block;margin-top:1px;font-weight:400}
-  .rm-live{background:#16a34a;border:none;color:#fff;font-size:.65rem;padding:4px 12px;border-radius:99px;font-weight:700;letter-spacing:.04em;display:flex;align-items:center;gap:4px}
-  .rm-rol-badge{font-size:.65rem;padding:3px 10px;border-radius:99px;font-weight:700;letter-spacing:.04em}
-  .rm-tabs{background:#fff;padding:0 24px;display:flex;gap:0;border-bottom:1.5px solid #ede8e0;overflow-x:auto}
-  .rm-tab{padding:13px 20px;border:none;background:transparent;color:#9a8e80;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;flex-shrink:0}
-  .rm-tab.on{color:#1a1611;border-bottom-color:#1a1611}
-  .rm-tab:hover:not(.on){color:#4a3f35}
+  .rm-hdr{background:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #ede8e0;position:sticky;top:0;z-index:100;box-shadow:0 1px 8px rgba(26,22,17,.06)}
+  .rm-hdr-marca{display:flex;align-items:center;gap:10px}
+  .rm-hdr-ico{width:36px;height:36px;border-radius:10px;background:#1a1611;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .rm-hdr-textos{display:flex;flex-direction:column;gap:0}
+  .rm-hdr h1{font-family:'DM Sans',sans-serif;font-size:.88rem;color:#1a1611;font-weight:800;letter-spacing:-.01em;line-height:1.2;margin:0}
+  .rm-hdr small{font-size:.62rem;color:#9a8e80;display:block;font-weight:500}
+  .rm-hdr-actions{display:flex;align-items:center;gap:6px}
+  .rm-live-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;animation:livePulse 1.5s ease-in-out infinite;flex-shrink:0}
+  @keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+  .rm-burger{width:36px;height:36px;border-radius:10px;border:1.5px solid #ede8e0;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;transition:all .15s;flex-shrink:0}
+  .rm-burger:hover{background:#f7f5f2;border-color:#c0b8b0}
+  .rm-burger span{display:block;width:16px;height:1.5px;background:#1a1611;border-radius:2px;transition:all .2s}
+  .rm-burger.open span:nth-child(1){transform:translateY(5.5px) rotate(45deg)}
+  .rm-burger.open span:nth-child(2){opacity:0;transform:scaleX(0)}
+  .rm-burger.open span:nth-child(3){transform:translateY(-5.5px) rotate(-45deg)}
+  .rm-drawer-ov{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;backdrop-filter:blur(2px);animation:fadeIn .15s ease}
+  .rm-drawer{position:fixed;top:0;left:0;bottom:0;width:72vw;max-width:280px;background:#fff;z-index:201;display:flex;flex-direction:column;box-shadow:4px 0 24px rgba(0,0,0,.12);animation:slideRight .22s cubic-bezier(.4,0,.2,1)}
+  @keyframes slideRight{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+  .rm-drawer-hdr{padding:16px;border-bottom:1px solid #ede8e0;display:flex;align-items:center;gap:10px}
+  .rm-drawer-ico{width:32px;height:32px;border-radius:8px;background:#1a1611;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .rm-drawer-titulo{font-size:.82rem;font-weight:800;color:#1a1611}
+  .rm-drawer-sub{font-size:.62rem;color:#9a8e80;margin-top:1px}
+  .rm-drawer-nav{flex:1;overflow-y:auto;padding:8px 0}
+  .rm-drawer-item{display:flex;align-items:center;gap:12px;padding:12px 16px;border:none;background:transparent;width:100%;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:600;color:#6b5e4e;transition:all .12s;text-align:left}
+  .rm-drawer-item:hover{background:#f7f5f2;color:#1a1611}
+  .rm-drawer-item.on{background:#f0ece4;color:#1a1611;font-weight:700}
+  .rm-drawer-item.on .rm-drawer-item-ico{background:#1a1611;color:#F5EDD8}
+  .rm-drawer-item-ico{width:32px;height:32px;border-radius:8px;background:#f0ece4;display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0;transition:all .12s}
+  .rm-drawer-ft{padding:12px 16px;border-top:1px solid #ede8e0}
+  .rm-btn-salir{width:100%;padding:10px;border-radius:10px;border:1.5px solid #ede8e0;background:#fff;color:#9a8e80;font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .15s}
+  .rm-btn-salir:hover{background:#1a1611;color:#F5EDD8;border-color:#1a1611}
+  .rm-rol-badge{font-size:.55rem;padding:2px 7px;border-radius:5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;flex-shrink:0}
+  .rm-tabs{display:none}
+  .rm-tab{display:none}
   .rm-main{padding:20px 24px;max-width:1100px;margin:0 auto}
   .rm-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px}
   .rm-kpi{background:#fff;border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:3px;border:1px solid #ede8e0}
@@ -254,56 +279,55 @@ function LoginScreen({ onLogin }) {
 // ─── Auth Gate con detección de rol ──────────────────────────
 function AuthGate({ children }) {
   const [session, setSession] = useState(undefined);
-  const [perfil,  setPerfil]  = useState(null);
+  const [perfil,  setPerfil]  = useState(undefined);
+
+  const verificar = async (s) => {
+    if (!s?.user) { setPerfil(null); return; }
+
+    const { data, error } = await supabase
+      .from("perfiles")
+      .select("*")
+      .eq("user_id", s.user.id)
+      .maybeSingle();
+
+    if (error || !data || data.rol === "cliente") {
+      await supabase.auth.signOut();
+      setPerfil(null);
+      return;
+    }
+
+    setPerfil(data);
+  };
 
   useEffect(() => {
-    const init = async () => {
-      const { data: { session: s } } = await supabase.auth.getSession();
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
-      if (s?.user) await cargarPerfil(s.user.id);
-    };
-    init();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_e, s) => {
+      verificar(s);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s);
-      if (s?.user) await cargarPerfil(s.user.id);
-      else setPerfil(null);
+      if (!s) { setPerfil(null); return; }
+      verificar(s);
     });
     return () => subscription.unsubscribe();
   }, []);
 
-  const cargarPerfil = async (userId) => {
-    const { data } = await supabase.from("perfiles").select("*").eq("user_id", userId).maybeSingle();
-    // Si no tiene perfil en la tabla, asumir admin como fallback seguro
-    // (solo ocurre si el INSERT del setup SQL no se ejecutó)
-    setPerfil(data || { user_id: userId, rol: "admin", nombre: "Admin" });
-  };
-
-  if (session === undefined) return (
-    <div style={{minHeight:"100vh",background:"#2d2820",display:"flex",alignItems:"center",justifyContent:"center"}}>
+  if (session === undefined || (session && perfil === undefined)) return (
+    <div style={{minHeight:"100vh",background:"#2d2820",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12}}>
       <div style={{width:36,height:36,border:"3px solid #D4CBB840",borderTopColor:"#EDE5D0",borderRadius:"50%",animation:"spin .7s linear infinite"}}/>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      <span style={{color:"#D4CBB880",fontSize:".8rem",fontFamily:"DM Sans,sans-serif"}}>Verificando acceso…</span>
     </div>
   );
 
-  if (!session) return (
-    <LoginScreen onLogin={async () => {
-      const { data: { session: s } } = await supabase.auth.getSession();
-      setSession(s);
-      if (s?.user) await cargarPerfil(s.user.id);
-    }}/>
-  );
-
-  if (!perfil) return (
-    <div style={{minHeight:"100vh",background:"#f7f5f2",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"'DM Sans',sans-serif",gap:16}}>
-      <div style={{textAlign:"center",color:"#9a8e80"}}>
-        <div style={{width:32,height:32,border:"3px solid #ede8e0",borderTopColor:"#1a1611",borderRadius:"50%",animation:"spin .7s linear infinite",margin:"0 auto 12px"}}/>
-        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-        Cargando perfil…
-      </div>
-      <button onClick={()=>supabase.auth.signOut()} style={{background:"transparent",border:"1px solid #ede8e0",borderRadius:"99px",padding:"6px 16px",fontSize:".75rem",color:"#9a8e80",cursor:"pointer",fontFamily:"inherit"}}>
-        ← Cerrar sesión
-      </button>
-    </div>
+  if (!session || perfil === null) return (
+    <LoginScreen onLogin={() =>
+      supabase.auth.getSession().then(({ data: { session: s } }) => {
+        setSession(s);
+        verificar(s);
+      })
+    }/>
   );
 
   return children({ perfil, session });
@@ -484,8 +508,9 @@ function PanelSocios({ socios, vehiculos, onCrearSocio, onToggleActivo, onCrearV
   const VEH_INIT  = { socio_id:"", patente:"", marca:"", modelo:"", anio: new Date().getFullYear(), capacidad_pasajeros:8, color:"" };
   const [form,     setForm]     = useState(FORM_INIT);
   const [formVeh,  setFormVeh]  = useState(VEH_INIT);
-  const [vista,    setVista]    = useState("lista"); // lista | nuevo-socio | nuevo-vehiculo
+  const [vista,    setVista]    = useState("lista");
   const [saving,   setSaving]   = useState(false);
+  const [socioDetalle, setSocioDetalle] = useState(null);
 
   const guardarSocio = async () => {
     if (!form.nombre_completo||!form.telefono) { onToast("⚠️ Nombre y teléfono son obligatorios"); return; }
@@ -589,9 +614,96 @@ function PanelSocios({ socios, vehiculos, onCrearSocio, onToggleActivo, onCrearV
     </div>
   );
 
-  // Vista lista
   return (
     <div style={{display:"flex",flexDirection:"column",gap:16}}>
+
+      {/* Modal detalle socio */}
+      {socioDetalle && (() => {
+        const s = socioDetalle;
+        const vehs = vehiculos.filter(v=>v.socio_id===s.id);
+        const iniciales = s.nombre_completo.split(" ").map(p=>p[0]).join("").toUpperCase().slice(0,2);
+        return (
+          <div className="rm-ov" onClick={()=>setSocioDetalle(null)}>
+            <div className="rm-modal" style={{maxWidth:480}} onClick={e=>e.stopPropagation()}>
+              <div className="rm-modal-hdr">
+                <div style={{display:"flex",alignItems:"center",gap:12}}>
+                  <div style={{width:40,height:40,borderRadius:"50%",background:"#F5EDD8",color:"#1a1611",display:"flex",alignItems:"center",justifyContent:"center",fontSize:".85rem",fontWeight:800,flexShrink:0}}>{iniciales}</div>
+                  <div>
+                    <div className="rm-modal-titulo">{s.nombre_completo}</div>
+                    <div className="rm-modal-sub" style={{color:s.activo?"#22c55e":"#ef4444"}}>{s.activo?"● Activo":"● Inactivo"}</div>
+                  </div>
+                </div>
+                <button className="rm-modal-close" onClick={()=>setSocioDetalle(null)}>✕</button>
+              </div>
+              <div className="rm-modal-body">
+                <div className="rm-modal-seccion">Datos personales</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                  {[
+                    ["Teléfono", s.telefono||"—"],
+                    ["RUT", s.rut||"—"],
+                    ["Licencia", s.licencia_clase||"—"],
+                    ["Comisión", `${s.comision_porcentaje}%`],
+                  ].map(([lbl,val])=>(
+                    <div key={lbl} style={{background:"#faf8f5",borderRadius:10,padding:"10px 14px"}}>
+                      <div style={{fontSize:".6rem",fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"#b0a898",marginBottom:3}}>{lbl}</div>
+                      <div style={{fontSize:".85rem",fontWeight:700,color:"#1a1611"}}>{val}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {s.telefono && (
+                  <button className="rm-btn-wa-lg" style={{width:"100%",marginTop:12,padding:"10px",borderRadius:10,justifyContent:"center"}}
+                    onClick={()=>window.open(`https://wa.me/${s.telefono.replace(/\D/g,"")}?text=${encodeURIComponent(`Hola ${s.nombre_completo.split(" ")[0]} 👋, te contactamos desde Araucanía Viajes.`)}`, "_blank")}>
+                    💬 Escribir por WhatsApp
+                  </button>
+                )}
+
+                <div className="rm-modal-seccion" style={{marginTop:16}}>Vehículos ({vehs.length})</div>
+                {vehs.length===0 ? (
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <span style={{fontSize:".78rem",color:"#b0a898"}}>Sin vehículos registrados</span>
+                    <button className="rm-btn" onClick={()=>{setSocioDetalle(null);setVista("nuevo-vehiculo");}}>+ Agregar</button>
+                  </div>
+                ) : (
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    {vehs.map(v=>(
+                      <div key={v.id} style={{background:"#faf8f5",border:"1px solid #ede8e0",borderRadius:12,padding:"10px 14px",display:"flex",alignItems:"center",gap:10}}>
+                        <div style={{width:36,height:36,borderRadius:8,background:"#1a1611",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5EDD8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M5 17H3a2 2 0 01-2-2V7a2 2 0 012-2h11l5 7v5h-2"/>
+                            <circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/>
+                            <path d="M9 5v7h11"/>
+                          </svg>
+                        </div>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:".85rem",fontWeight:700,color:"#1a1611"}}>{v.patente} · {v.marca} {v.modelo}</div>
+                          <div style={{fontSize:".7rem",color:"#9a8e80",marginTop:2}}>{v.anio} · {v.capacidad_pasajeros} pasajeros · {v.color||""}</div>
+                        </div>
+                        {!v.activo&&<span style={{fontSize:".6rem",color:"#dc2626",fontWeight:700,background:"#fef2f2",padding:"2px 6px",borderRadius:4}}>INACTIVO</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {s.notas && (
+                  <>
+                    <div className="rm-modal-seccion">Notas internas</div>
+                    <p style={{fontSize:".8rem",color:"#6b5e4e",lineHeight:1.6,background:"#faf8f5",borderRadius:10,padding:"10px 14px"}}>{s.notas}</p>
+                  </>
+                )}
+
+                <div style={{display:"flex",gap:8,marginTop:16,paddingTop:12,borderTop:"1px solid #f2ede6"}}>
+                  <button className={`rm-btn ${s.activo?"red":"green"}`} style={{flex:1,padding:"8px"}}
+                    onClick={()=>{onToggleActivo(s);setSocioDetalle(null);}}>
+                    {s.activo?"Desactivar socio":"Activar socio"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
         <button className="rm-btn-primary" onClick={()=>setVista("nuevo-vehiculo")}>🚐 Nuevo vehículo</button>
         <button className="rm-btn-primary" onClick={()=>setVista("nuevo-socio")}>👤 Nuevo socio</button>
@@ -607,7 +719,10 @@ function PanelSocios({ socios, vehiculos, onCrearSocio, onToggleActivo, onCrearV
           const vehs = vehiculos.filter(v=>v.socio_id===socio.id);
           const iniciales = socio.nombre_completo.split(" ").map(p=>p[0]).join("").toUpperCase().slice(0,2);
           return (
-            <div key={socio.id} className="rm-form-wrap" style={{padding:"16px 20px"}}>
+            <div key={socio.id} className="rm-form-wrap" style={{padding:"16px 20px",cursor:"pointer",transition:"box-shadow .15s"}}
+              onClick={()=>setSocioDetalle(socio)}
+              onMouseOver={e=>e.currentTarget.style.boxShadow="0 4px 16px rgba(0,0,0,.08)"}
+              onMouseOut={e=>e.currentTarget.style.boxShadow="none"}>
               <div className="rm-socio-card" style={{border:"none",padding:0}}>
                 <div className="rm-socio-avatar" style={{opacity:socio.activo?1:0.4}}>{iniciales}</div>
                 <div className="rm-socio-info">
@@ -620,30 +735,20 @@ function PanelSocios({ socios, vehiculos, onCrearSocio, onToggleActivo, onCrearV
                   </div>
                   {socio.rut&&<div className="rm-socio-meta">RUT: {socio.rut}</div>}
                 </div>
-                <div className="rm-socio-actions">
+                <div className="rm-socio-actions" onClick={e=>e.stopPropagation()}>
                   <button className={`rm-btn ${socio.activo?"red":"green"}`} onClick={()=>onToggleActivo(socio)}>
                     {socio.activo?"Desactivar":"Activar"}
                   </button>
                 </div>
               </div>
-
-              {/* Vehículos del socio */}
-              <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid #f2ede6"}}>
-                <div style={{fontSize:".62rem",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",color:"#b0a898",marginBottom:8}}>
-                  Vehículos ({vehs.length})
-                </div>
-                {vehs.length===0 ? (
-                  <span style={{fontSize:".78rem",color:"#c0b8b0"}}>Sin vehículos registrados</span>
-                ) : (
-                  <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-                    {vehs.map(v=>(
-                      <span key={v.id} className="rm-vehiculo-tag">
-                        🚐 {v.patente} · {v.marca} {v.modelo} {v.anio} · {v.capacidad_pasajeros}pax
-                        {!v.activo&&<span style={{color:"#dc2626",fontSize:".6rem"}}> (inactivo)</span>}
-                      </span>
-                    ))}
-                  </div>
-                )}
+              <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #f2ede6",display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                <span style={{fontSize:".62rem",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",color:"#b0a898"}}>Vehículos ({vehs.length})</span>
+                {vehs.map(v=>(
+                  <span key={v.id} className="rm-vehiculo-tag" style={{fontSize:".68rem"}}>
+                    {v.patente} · {v.marca} {v.modelo}
+                  </span>
+                ))}
+                {vehs.length===0&&<span style={{fontSize:".72rem",color:"#c0b8b0"}}>Sin vehículos</span>}
               </div>
             </div>
           );
@@ -728,7 +833,6 @@ function BloqueoPanel({ bloqueos, onBloqueoDia, onBloqueoMes, onEliminar }) {
 
 // ─── Dashboard Socio ─────────────────────────────────────────
 function DashboardSocio({ socioData, viajes, onConfirmarCheckin, onToast }) {
-  const [modalDia, setModalDia] = useState(null);
   const hoy = new Date().toISOString().split("T")[0];
 
   const viajesHoy     = viajes.filter(v=>v.fecha===hoy);
@@ -780,7 +884,7 @@ function DashboardSocio({ socioData, viajes, onConfirmarCheckin, onToast }) {
         <div>
           <div className="rm-sec-hdr">VIAJES DE HOY ({viajesHoy.length})</div>
           <div className="rm-cards">
-            {viajesHoy.map(v=>{
+            {viajesHoy.map(v => {
               const reservasActivas = v.reservas?.filter(r=>r.estado!=="cancelada")||[];
               const cfg = ESTADO_CFG[v.estado]||ESTADO_CFG.en_espera;
               return (
@@ -856,7 +960,7 @@ function ReservationManagerInner({ perfil }) {
   const [bloqueos,     setBloqueos]     = useState([]);
   const [socios,       setSocios]       = useState([]);
   const [vehiculos,    setVehiculos]    = useState([]);
-  const [socioActual,  setSocioActual]  = useState(null); // para socios logueados
+  const [socioActual,  setSocioActual]  = useState(null);
   const [loading,      setLoading]      = useState(true);
   const [abierto,      setAbierto]      = useState(null);
   const [filtroFecha,  setFiltroFecha]  = useState("");
@@ -866,6 +970,7 @@ function ReservationManagerInner({ perfil }) {
   const [saving,       setSaving]       = useState(false);
   const [successViaje, setSuccessViaje] = useState(null);
   const [modalDia,     setModalDia]     = useState(null);
+  const [drawerOpen,   setDrawerOpen]   = useState(false);
 
   const FORM_VIAJE_INIT = { ruta_id:"", tipo:"compartido", fecha:"", hora_salida:"08:00", capacidad:8, precio_por_pax:"", socio_id:"", vehiculo_id:"", conductor:"", vehiculo:"", notas_admin:"" };
   const FORM_RES_INIT   = { viaje_id:"", nombre:"", email:"", telefono:"", num_asientos:1, notas:"", origen_reserva:"telefono" };
@@ -888,7 +993,6 @@ function ReservationManagerInner({ perfil }) {
       .order("fecha",      { ascending: true })
       .order("hora_salida",{ ascending: true });
 
-    // Socio solo ve sus viajes
     if (!esAdmin && socioActual) {
       query = query.eq("socio_id", socioActual.id);
     } else if (!esAdmin && !socioActual) {
@@ -1086,7 +1190,16 @@ function ReservationManagerInner({ perfil }) {
   const rutaSel = rutas.find(r=>r.id===formViaje.ruta_id);
   const socioSelVehiculos = vehiculos.filter(v=>v.socio_id===formViaje.socio_id&&v.activo);
 
-  // Tabs según rol
+  const ICO = {
+    dashboard: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
+    compartido: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="8" width="15" height="10" rx="2"/><path d="M16 11l5 2v5h-5V11z"/><circle cx="5.5" cy="18.5" r="1.5"/><circle cx="18.5" cy="18.5" r="1.5"/></svg>,
+    privado: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17H3a2 2 0 01-2-2V7a2 2 0 012-2h11l5 7v5h-2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M9 5v7h11"/></svg>,
+    socios: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>,
+    bloqueos: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>,
+    "nuevo-viaje": <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 14v4M10 16h4"/></svg>,
+    "nueva-reserva": <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>,
+  };
+
   const tabs = esAdmin
     ? [["dashboard","Calendario"],["compartido","Compartido"],["privado","Van Privada"],["socios","Socios"],["bloqueos","Bloqueos"],["nuevo-viaje","Nuevo Viaje"],["nueva-reserva","Nueva Reserva"]]
     : [["dashboard","Mis Viajes"]];
@@ -1095,26 +1208,62 @@ function ReservationManagerInner({ perfil }) {
     <>
       <style>{css}</style>
       <div className="rm">
-        <div className="rm-hdr">
-          <div>
-            <h1>🚐 {esAdmin ? "Manager de Reservas" : "Panel Conductor"}</h1>
-            <small>Araucanía Viajes · {esAdmin ? "Admin General" : `Socio · ${socioActual?.nombre_completo||""}`}</small>
+        {/* Drawer overlay */}
+        {drawerOpen && (
+          <div className="rm-drawer-ov" onClick={()=>setDrawerOpen(false)}>
+            <div className="rm-drawer" onClick={e=>e.stopPropagation()}>
+              <div className="rm-drawer-hdr">
+                <div className="rm-drawer-ico">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5EDD8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 17H3a2 2 0 01-2-2V7a2 2 0 012-2h11l5 7v5h-2"/>
+                    <circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/>
+                    <path d="M9 5v7h11"/>
+                  </svg>
+                </div>
+                <div>
+                  <div className="rm-drawer-titulo">Araucanía Viajes</div>
+                  <div className="rm-drawer-sub">{esAdmin ? "👑 Admin General" : `🚐 ${socioActual?.nombre_completo?.split(" ")[0]||"Conductor"}`}</div>
+                </div>
+              </div>
+              <nav className="rm-drawer-nav">
+                {tabs.map(([k,l])=>(
+                  <button key={k} className={`rm-drawer-item ${tab===k?"on":""}`}
+                    onClick={()=>{setTab(k);setSuccessViaje(null);setDrawerOpen(false);}}>
+                    <span className="rm-drawer-item-ico">{ICO[k]}</span>
+                    {l}
+                  </button>
+                ))}
+              </nav>
+              <div className="rm-drawer-ft">
+                <button className="rm-btn-salir" onClick={()=>supabase.auth.signOut()}>
+                  Cerrar sesión
+                </button>
+              </div>
+            </div>
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <span className="rm-rol-badge" style={{background:esAdmin?"#1a1611":"#2563eb",color:"#fff"}}>
-              {esAdmin?"👑 Admin":"🚐 Conductor"}
-            </span>
-            <span className="rm-live">● En vivo</span>
-            <button onClick={()=>supabase.auth.signOut()} style={{background:"#ffffff18",border:"none",color:"#9a8e80",borderRadius:"99px",padding:"6px 14px",fontFamily:"inherit",fontSize:".72rem",fontWeight:600,cursor:"pointer"}}>
-              Salir
+        )}
+
+        {/* Header */}
+        <div className="rm-hdr">
+          <div className="rm-hdr-marca">
+            <div className="rm-hdr-ico">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5EDD8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 17H3a2 2 0 01-2-2V7a2 2 0 012-2h11l5 7v5h-2"/>
+                <circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/>
+                <path d="M9 5v7h11"/>
+              </svg>
+            </div>
+            <div className="rm-hdr-textos">
+              <h1>{esAdmin ? "Araucanía Viajes" : "Panel Conductor"}</h1>
+              <small>{tabs.find(([k])=>k===tab)?.[1] || "Dashboard"}</small>
+            </div>
+          </div>
+          <div className="rm-hdr-actions">
+            <div className="rm-live-dot"/>
+            <button className={`rm-burger ${drawerOpen?"open":""}`} onClick={()=>setDrawerOpen(v=>!v)}>
+              <span/><span/><span/>
             </button>
           </div>
-        </div>
-
-        <div className="rm-tabs">
-          {tabs.map(([k,l])=>(
-            <button key={k} className={`rm-tab ${tab===k?"on":""}`} onClick={()=>{setTab(k);setSuccessViaje(null);}}>{l}</button>
-          ))}
         </div>
 
         <div className="rm-main">
