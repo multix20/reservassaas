@@ -418,17 +418,45 @@ export default function Reservas() {
   // ── Navegar directo a confirmar calculando tarifas si hace falta ──────────
   // ── Reservar directo sin pantalla de confirmación ──────────────────────
   const reservarDirecto = async () => {
-    if (!usuario) {
-      setError("Debes iniciar sesión para reservar.");
-      document.querySelector(".hdr__signin, .hdr__register")?.click();
-      return;
-    }
-    setError("");
-    if (!rutaData) {
-      await verTarifas();
-    }
-    await confirmar();
-  };
+  if (!usuario) {
+    setError("Debes iniciar sesión para reservar.");
+    document.querySelector(".hdr__signin, .hdr__register")?.click();
+    return;
+  }
+  setError("");
+
+  // ── Verificación de bloqueo en tiempo real ──────────────
+  const tipoCheck  = tipoViaje === "van_completa" ? "privado" : "compartido";
+  const fechaCheck = tipoViaje === "van_completa" ? fechaVan  : fechaComp;
+
+  // Re-consultar bloqueos frescos desde Supabase
+  const { data: bloqueosFrescos } = await supabase.from("bloqueos").select("*");
+  const bloqueosActuales = bloqueosFrescos || [];
+
+  const estaBloqueado = bloqueosActuales.some(b => {
+    const afecta = !b.aplica_a || b.aplica_a === "ambos" || b.aplica_a === tipoCheck;
+    if (!afecta) return false;
+    const f = new Date(fechaCheck + "T12:00:00");
+    if (b.tipo === "dia") return b.fecha === fechaCheck;
+    if (b.tipo === "mes") return b.mes === f.getMonth()+1 && b.anio === f.getFullYear();
+    return false;
+  });
+
+  if (estaBloqueado) {
+    setError(
+      tipoCheck === "compartido"
+        ? "El Transfer no está disponible en esta fecha. Puedes reservar una Van Privada."
+        : "La Van Privada no está disponible en esta fecha."
+    );
+    return;
+  }
+  // ────────────────────────────────────────────────────────
+
+  if (!rutaData) {
+    await verTarifas();
+  }
+  await confirmar();
+};
 
   const confirmar = async () => {
     setError(""); setEnviando(true);
