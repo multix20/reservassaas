@@ -13,6 +13,9 @@ import WhatsAppButton from './components/WhatsAppButton';
 import Reservas from './components/Reservas';
 import ReservationManager from './components/ReservationManager';
 import SocioDashboard from './components/SocioDashboard';
+import HostalPublico from './components/HostalPublico';
+import FormularioReserva from './components/FormularioReserva';
+import Confirmacion from './components/Confirmacion';
 
 // ─── Landing page pública ─────────────────────────────────────
 const LandingPage = () => (
@@ -39,6 +42,9 @@ const App = () => (
       <Route path="/"      element={<LandingPage />} />
       <Route path="/admin" element={<ReservationManager />} />
       <Route path="/socio" element={<SocioDashboard />} />
+      <Route path="/:tenant_id" element={<HostalPublico />} />
+      <Route path="/:tenant_id/reservar/:habitacion_id" element={<FormularioReserva />} />
+      <Route path="/:tenant_id/confirmacion" element={<Confirmacion />} />
     </Routes>
   </BrowserRouter>
 );

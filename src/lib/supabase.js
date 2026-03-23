@@ -10,7 +10,7 @@ if (typeof window !== "undefined") {
       {
         auth: {
           persistSession: true,
-          storageKey: "av_session",  // clave única evita conflictos
+          storageKey: "rss_session",  // clave única evita conflictos
         }
       }
     );
