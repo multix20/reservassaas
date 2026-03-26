@@ -1,279 +1,528 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import supabase from '../lib/supabase';
+import CalendarioReserva from './CalendarioReserva';
 
-const formatPrecio = (n) =>
-  new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n);
 
-const noches = (entrada, salida) =>
-  Math.round((new Date(salida) - new Date(entrada)) / 86400000);
+const noches = (e, s) => Math.round((new Date(s) - new Date(e)) / 86400000);
+const ANTICIPO_PCT = 0.3;
 
-const ANTICIPO_PCT = 0.3; // 30%
+const MEDIOS_PAGO = [
+  { id: 'flow',   nombre: 'Flow.cl',              desc: 'Transferencia bancaria Chile',  color: '#1a6b3c', bg: '#e8f4e8' },
+  { id: 'mp',     nombre: 'MercadoPago',           desc: 'Tarjeta, débito o saldo MP',    color: '#fff',    bg: '#009EE3' },
+  { id: 'stripe', nombre: 'Tarjeta internacional', desc: 'Visa, Mastercard, Amex',        color: '#fff',    bg: '#635BFF' },
+];
+
+const MONEDAS = [
+  { id: 'CLP', simbolo: '$',   nombre: 'Peso Chileno',     tasa: 1,        decimales: 0 },
+  { id: 'USD', simbolo: 'US$', nombre: 'Dólar Americano',  tasa: 0.00106,  decimales: 2 },
+  { id: 'EUR', simbolo: '€',   nombre: 'Euro',             tasa: 0.00096,  decimales: 2 },
+  { id: 'BRL', simbolo: 'R$',  nombre: 'Real Brasileño',   tasa: 0.00526,  decimales: 2 },
+  { id: 'ARS', simbolo: 'AR$', nombre: 'Peso Argentino',   tasa: 1.12,     decimales: 0 },
+  { id: 'MXN', simbolo: 'MX$', nombre: 'Peso Mexicano',    tasa: 0.019,    decimales: 0 },
+];
+
+const IDIOMAS = [
+  { id: 'es', bandera: '🇨🇱', nombre: 'Español' },
+  { id: 'en', bandera: '🇺🇸', nombre: 'English' },
+  { id: 'pt', bandera: '🇧🇷', nombre: 'Português' },
+  { id: 'fr', bandera: '🇫🇷', nombre: 'Français' },
+  { id: 'de', bandera: '🇩🇪', nombre: 'Deutsch' },
+];
+
+/* ── Íconos ── */
+const IconPersona = ({ c = '#FF6A2F' }) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="8" r="4" stroke={c} strokeWidth="1.6"/>
+    <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
+  </svg>
+);
+const IconEmail = ({ c = '#FF6A2F' }) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+    <rect x="2" y="5" width="20" height="14" rx="3" stroke={c} strokeWidth="1.6"/>
+    <path d="M2 8l10 7 10-7" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
+  </svg>
+);
+const IconTel = ({ c = '#FF6A2F' }) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+    <path d="M6 2h12a1 1 0 011 1v18a1 1 0 01-1 1H6a1 1 0 01-1-1V3a1 1 0 011-1z" stroke={c} strokeWidth="1.6"/>
+    <circle cx="12" cy="18" r="1" fill={c}/>
+    <path d="M9 5h6" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
+  </svg>
+);
+const IconNota = ({ c = '#FF6A2F' }) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+    <rect x="3" y="3" width="18" height="18" rx="3" stroke={c} strokeWidth="1.6"/>
+    <path d="M7 8h10M7 12h10M7 16h6" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
+  </svg>
+);
+const IconPago = ({ c = '#FF6A2F' }) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+    <rect x="2" y="6" width="20" height="13" rx="3" stroke={c} strokeWidth="1.6"/>
+    <path d="M2 10h20" stroke={c} strokeWidth="1.6"/>
+    <rect x="5" y="13" width="4" height="2" rx="1" fill={c}/>
+  </svg>
+);
+const IconCalendario = ({ c = '#fff' }) => (
+  <svg width="15" height="15" viewBox="0 0 14 14" fill="none">
+    <rect x="1" y="2" width="12" height="11" rx="2" stroke={c} strokeWidth="1.3"/>
+    <path d="M4 1v2M10 1v2M1 6h12" stroke={c} strokeWidth="1.3" strokeLinecap="round"/>
+  </svg>
+);
+
+const fmtFecha = (d) =>
+  new Date(d + 'T12:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short' });
+
+const inputStyle = {
+  width: '100%', border: 'none', borderBottom: '0.5px solid #eee',
+  padding: '4px 0', fontSize: 14, color: '#111',
+  fontFamily: "'DM Sans',sans-serif", background: 'transparent', outline: 'none',
+};
+
+function Campo({ icon, label, children }) {
+  return (
+    <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 2px 12px rgba(0,0,0,.07)', padding: '12px 14px', display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
+      <div style={{ width: 36, height: 36, borderRadius: 10, background: '#fff5f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>
+        {icon}
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#bbb', marginBottom: 4 }}>{label}</div>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export default function FormularioReserva() {
   const { tenant_id } = useParams();
-  const { state } = useLocation();
-  const navigate = useNavigate();
+  const { state }     = useLocation();
+  const navigate      = useNavigate();
 
-  // Si no hay state (acceso directo a la URL), volver al hostal
-  if (!state?.hab) {
-    navigate(`/${tenant_id}`);
-    return null;
-  }
+  if (!state?.hab) { navigate(`/${tenant_id}`); return null; }
 
-  const { hab, hostal, entrada, salida } = state;
-  const nn = noches(entrada, salida);
-  const total = hab.precio_noche * nn;
+  const { hab, hostal, entrada: entradaInicial, salida: salidaInicial, huespedes: huespedesInicial = 1 } = state;
+
+  const [entrada, setEntrada]         = useState(entradaInicial);
+  const [salida, setSalida]           = useState(salidaInicial);
+  const [huespedes, setHuespedes]     = useState(huespedesInicial);
+  const [verCalendario, setVerCalendario] = useState(false);
+  const [verHuespedes, setVerHuespedes]   = useState(false);
+
+  const nn       = noches(entrada, salida);
+  const total    = hab.precio_noche * nn * huespedes;
   const anticipo = Math.round(total * ANTICIPO_PCT);
-  const resto = total - anticipo;
+  const resto    = total - anticipo;
 
-  const [paso, setPaso] = useState(1); // 1: datos, 2: resumen, 3: pago
-  const [enviando, setEnviando] = useState(false);
-  const [error, setError] = useState(null);
+  const [paso, setPaso]           = useState(1);
+  const [enviando, setEnviando]   = useState(false);
+  const [error, setError]         = useState(null);
+  const [medioPago, setMedioPago] = useState('flow');
+  const [verResumen, setVerResumen] = useState(false);
+  const [moneda, setMoneda]       = useState('CLP');
+  const [idioma, setIdioma]       = useState('es');
+  const [verMoneda, setVerMoneda] = useState(false);
+  const [verIdioma, setVerIdioma] = useState(false);
 
-  const [form, setForm] = useState({
-    nombre: '',
-    email: '',
-    telefono: '',
-    notas: '',
-  });
-
+  const monedaActual = MONEDAS.find(m => m.id === moneda);
+  const fmtM = (n) => {
+    const v = n * monedaActual.tasa;
+    return new Intl.NumberFormat('es-CL', {
+      style: 'currency', currency: moneda, maximumFractionDigits: monedaActual.decimales
+    }).format(v);
+  };
+  const [form, setForm] = useState({ nombre: '', email: '', telefono: '', notas: '' });
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
-  const validarPaso1 = () => {
-    if (!form.nombre.trim()) return 'El nombre es obligatorio';
+  const validar = () => {
+    if (!form.nombre.trim())       return 'El nombre es obligatorio';
     if (!form.email.includes('@')) return 'El email no es válido';
-    if (!form.telefono.trim()) return 'El teléfono es obligatorio';
+    if (!form.telefono.trim())     return 'El teléfono es obligatorio';
     return null;
   };
 
   const avanzar = () => {
-    const err = validarPaso1();
+    const err = validar();
     if (err) { setError(err); return; }
-    setError(null);
-    setPaso(2);
+    setError(null); setPaso(2);
   };
 
   const confirmarYPagar = async () => {
-    setEnviando(true);
-    setError(null);
+    setEnviando(true); setError(null);
     try {
-      // 1. Crear reserva en Supabase con estado 'pendiente'
-     const { error: eR } = await supabase
-  .from('reservas_hostal')
-  .insert({
-    hostal_id: hostal.id,
-    habitacion_id: hab.id,
-    huesped_nombre: form.nombre.trim(),
-    huesped_email: form.email.trim().toLowerCase(),
-    huesped_telefono: form.telefono.trim(),
-    fecha_entrada: entrada,
-    fecha_salida: salida,
-    precio_por_noche: hab.precio_noche,
-    notas: form.notas.trim() || null,
-    estado: 'pendiente',
-  });
-
-if (eR) throw new Error(eR.message);
-
-// Construimos el objeto reserva manualmente
-const reserva = {
-  huesped_nombre: form.nombre.trim(),
-  huesped_email: form.email.trim().toLowerCase(),
-};
-
-      if (eR) throw new Error(eR.message);
-
-      // 2. Crear orden de pago en Flow.cl (via tu backend/edge function)
-      // Por ahora simulamos el redirect — en Semana 3 conectas Flow real
-      // const flowUrl = await crearOrdenFlow(reserva.id, anticipo, form.email);
-      // window.location.href = flowUrl;
-
-      // Simulación: ir a página de éxito
-      navigate(`/${tenant_id}/confirmacion`, {
-        state: { reserva, hab, hostal, entrada, salida, anticipo, resto }
+      const { error: eR } = await supabase.from('reservas_hostal').insert({
+        hostal_id: hostal.id, habitacion_id: hab.id,
+        huesped_nombre: form.nombre.trim(),
+        huesped_email: form.email.trim().toLowerCase(),
+        huesped_telefono: form.telefono.trim(),
+        fecha_entrada: entrada, fecha_salida: salida,
+        precio_por_noche: hab.precio_noche,
+        notas: form.notas.trim() || null,
+        estado: 'pendiente',
       });
-
-    } catch (e) {
+      if (eR) throw new Error(eR.message);
+      navigate(`/${tenant_id}/confirmacion`, {
+        state: { reserva: { huesped_nombre: form.nombre.trim(), huesped_email: form.email.trim().toLowerCase() }, hab, hostal, entrada, salida, anticipo, resto }
+      });
+    } catch {
       setError('Hubo un problema al procesar tu reserva. Intenta de nuevo.');
       setEnviando(false);
     }
   };
 
+  const medio = MEDIOS_PAGO.find(m => m.id === medioPago);
+
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div style={{ minHeight: '100vh', background: '#f6f6f6', fontFamily: "'DM Sans',sans-serif", maxWidth: 480, margin: '0 auto', paddingBottom: 88 }}>
 
-      {/* Header */}
-      <div className="bg-green-600 px-4 py-3 flex items-center gap-3">
-        <button
-          onClick={() => paso === 1 ? navigate(-1) : setPaso(paso - 1)}
-          className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white text-sm">
-          ←
-        </button>
-        <div>
-          <div className="text-white font-medium text-sm">Confirmar reserva</div>
-          <div className="text-white/70 text-xs">{hostal.nombre} · {hostal.ciudad}</div>
-        </div>
-      </div>
+      {/* ── Header ── */}
+      <div style={{ background: '#fff', borderBottom: '0.5px solid #eee', position: 'sticky', top: 0, zIndex: 50 }}>
 
-      {/* Barra de pasos */}
-      <div className="flex gap-1.5 px-4 py-2 bg-white border-b border-gray-100">
-        {[1, 2].map((n) => (
-          <div key={n} className={`flex-1 h-1 rounded-full transition-colors ${
-            n <= paso ? 'bg-green-500' : 'bg-gray-200'
-          }`} />
-        ))}
-      </div>
+        <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
 
-      <div className="max-w-lg mx-auto px-4 py-6">
+          {/* Izquierda: volver + nombre */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+            <button onClick={() => paso === 1 ? navigate(-1) : setPaso(1)}
+              style={{ width: 32, height: 32, borderRadius: '50%', background: '#f5f5f5', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L6 8l4 5" stroke="#333" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </button>
+            <span style={{ fontSize: 15, fontWeight: 700, color: '#111', letterSpacing: '-.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hostal.nombre}</span>
+          </div>
 
-        {/* Resumen de reserva — siempre visible */}
-        <div className="bg-green-50 rounded-xl p-4 mb-5 border border-green-100">
-          <div className="text-sm font-medium text-green-900 mb-1">{hab.nombre}</div>
-          <div className="flex justify-between text-sm text-green-800">
-            <span>{entrada} → {salida} · {nn} noche{nn !== 1 ? 's' : ''}</span>
-            <span className="font-medium">{formatPrecio(total)}</span>
+          {/* Derecha: globo + moneda */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexShrink: 0, marginLeft: 16 }}>
+
+            {/* Globo → idioma */}
+            <div style={{ position: 'relative' }}>
+              <button onClick={() => { setVerIdioma(v => !v); setVerMoneda(false); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, display: 'flex', alignItems: 'center' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke={verIdioma ? '#FF6A2F' : '#555'} strokeWidth="1.6"/>
+                  <path d="M12 2C9.5 6 8 9 8 12s1.5 6 4 10M12 2c2.5 4 4 7 4 10s-1.5 6-4 10M2 12h20" stroke={verIdioma ? '#FF6A2F' : '#555'} strokeWidth="1.4" strokeLinecap="round"/>
+                </svg>
+              </button>
+              {verIdioma && (
+                <div style={{ position: 'absolute', top: 38, right: 0, background: '#fff', borderRadius: 14, boxShadow: '0 8px 32px rgba(0,0,0,.15)', overflow: 'hidden', minWidth: 170, zIndex: 300 }}>
+                  {IDIOMAS.map(l => (
+                    <div key={l.id} onClick={() => { setIdioma(l.id); setVerIdioma(false); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', cursor: 'pointer', background: idioma === l.id ? '#fff5f0' : '#fff', borderBottom: '0.5px solid #f5f5f5' }}>
+                      <span style={{ fontSize: 18 }}>{l.bandera}</span>
+                      <span style={{ fontSize: 13, fontWeight: idioma === l.id ? 700 : 400, color: idioma === l.id ? '#FF6A2F' : '#111' }}>{l.nombre}</span>
+                      {idioma === l.id && <svg style={{ marginLeft: 'auto' }} width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-7" stroke="#FF6A2F" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Código moneda */}
+            <div style={{ position: 'relative' }}>
+              <button onClick={() => { setVerMoneda(v => !v); setVerIdioma(false); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: verMoneda ? '#FF6A2F' : '#555', letterSpacing: '.02em' }}>{moneda}</span>
+              </button>
+              {verMoneda && (
+                <div style={{ position: 'absolute', top: 38, right: 0, background: '#fff', borderRadius: 14, boxShadow: '0 8px 32px rgba(0,0,0,.15)', overflow: 'hidden', minWidth: 200, zIndex: 300 }}>
+                  {MONEDAS.map(m => (
+                    <div key={m.id} onClick={() => { setMoneda(m.id); setVerMoneda(false); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', cursor: 'pointer', background: moneda === m.id ? '#fff5f0' : '#fff', borderBottom: '0.5px solid #f5f5f5' }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#333', minWidth: 38 }}>{m.id}</span>
+                      <span style={{ fontSize: 12, color: '#888', flex: 1 }}>{m.nombre}</span>
+                      {moneda === m.id && <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-7" stroke="#FF6A2F" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
           </div>
         </div>
 
-        {/* ── PASO 1: Datos del huésped ── */}
-        {paso === 1 && (
-          <div>
-            <p className="text-xs text-gray-400 uppercase tracking-wide mb-4">Paso 1 de 2 · Tus datos</p>
+        {/* ── Barra progreso ── */}
+        <div style={{ display: 'flex', gap: 4, padding: '0 16px 10px' }}>
+          {[1, 2].map(n => (
+            <div key={n} style={{ flex: 1, height: 3, borderRadius: 2, background: n <= paso ? '#FF6A2F' : '#eee', transition: 'background .3s' }} />
+          ))}
+        </div>
 
-            {/* Badges de confianza */}
-            <div className="flex flex-wrap gap-2 mb-5">
-              {['Cancelación gratis 48h', 'Pago seguro', 'Confirmación inmediata'].map((t) => (
-                <span key={t} className="flex items-center gap-1.5 text-xs text-gray-500 bg-white border border-gray-200 rounded-full px-3 py-1">
-                  <span className="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center text-white text-[8px] leading-none">✓</span>
-                  {t}
-                </span>
+      </div>
+
+      <div style={{ padding: '14px 16px 0' }}>
+
+        {/* ── Pill de fechas + huéspedes ── */}
+        <div style={{ background: '#fff', borderRadius: 50, border: '1px solid #e8e8e8', boxShadow: '0 1px 6px rgba(0,0,0,.06)', marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', padding: '5px' }}>
+            {/* Lado izquierdo — abre calendario */}
+            <div onClick={() => setVerCalendario(true)} style={{ display: 'flex', alignItems: 'center', flex: 1, cursor: 'pointer', gap: 0 }}>
+              <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#FF6A2F', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <IconCalendario />
+              </div>
+              <div style={{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: 500, color: '#111', padding: '0 10px' }}>
+                {fmtFecha(entrada)} → {fmtFecha(salida)} · {nn} noche{nn !== 1 ? 's' : ''}
+              </div>
+            </div>
+            {/* Divisor */}
+            <div style={{ width: 1, height: 22, background: '#e8e8e8', flexShrink: 0 }} />
+            {/* Lado derecho — selector huéspedes */}
+            <div onClick={(e) => { e.stopPropagation(); setVerHuespedes(v => !v); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '0 12px', cursor: 'pointer', flexShrink: 0 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="8" r="4" stroke={verHuespedes ? '#FF6A2F' : '#555'} strokeWidth="1.6"/>
+                <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke={verHuespedes ? '#FF6A2F' : '#555'} strokeWidth="1.6" strokeLinecap="round"/>
+              </svg>
+              <span style={{ fontSize: 14, fontWeight: 700, color: verHuespedes ? '#FF6A2F' : '#111' }}>{huespedes}</span>
+            </div>
+          </div>
+
+          {/* Selector inline */}
+          {verHuespedes && (
+            <div style={{ borderTop: '0.5px solid #f0f0f0', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 13, fontWeight: 500, color: '#111' }}>Huéspedes</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <button onClick={() => setHuespedes(h => Math.max(1, h - 1))}
+                  style={{ width: 30, height: 30, borderRadius: '50%', border: '1.5px solid #ddd', background: '#fff', fontSize: 18, cursor: huespedes <= 1 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', lineHeight: 1 }}>−</button>
+                <span style={{ fontSize: 16, fontWeight: 700, color: '#111', minWidth: 18, textAlign: 'center' }}>{huespedes}</span>
+                <button onClick={() => setHuespedes(h => Math.min(20, h + 1))}
+                  style={{ width: 30, height: 30, borderRadius: '50%', border: '1.5px solid #FF6A2F', background: '#FF6A2F', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', lineHeight: 1 }}>+</button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Card resumen precio (desplegable) ── */}
+        <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 2px 16px rgba(0,0,0,.07)', marginBottom: 14, overflow: 'hidden' }}>
+
+          {/* Cabecera siempre visible */}
+          <div onClick={() => setVerResumen(v => !v)} style={{ padding: '14px 16px', cursor: 'pointer' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <span style={{ fontSize: 11, color: '#aaa' }}>{fmtFecha(entrada)} → {fmtFecha(salida)}</span>
+              {hab.tarifa === 'nr' ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#E1F5EE', borderRadius: 20, padding: '3px 10px' }}>
+                  <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+                    <path d="M8 1l1.8 3.6L14 5.6l-3 2.9.7 4.1L8 10.4l-3.7 2.2.7-4.1-3-2.9 4.2-.6z" fill="#1D9E75"/>
+                  </svg>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#1D9E75', letterSpacing: '.04em' }}>NO REEMBOLSABLE</span>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#fff5f0', borderRadius: 20, padding: '3px 10px' }}>
+                  <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+                    <path d="M8 1a7 7 0 100 14A7 7 0 008 1zM8 5v4l2.5 2.5" stroke="#FF6A2F" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#FF6A2F', letterSpacing: '.04em' }}>FLEXIBLE</span>
+                </div>
+              )}
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#111', marginBottom: 6 }}>{hab.nombre}</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div style={{ fontSize: 30, fontWeight: 800, color: '#111', letterSpacing: '-.03em', lineHeight: 1 }}>
+                {fmtM(total)}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {/* Noches */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#f5f5f5', borderRadius: 20, padding: '5px 10px' }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                    <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" fill="#555" stroke="#555" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#555' }}>{nn}</span>
+                </div>
+                {/* Personas */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#f5f5f5', borderRadius: 20, padding: '5px 10px' }}>
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                    <path d="M8 7a3 3 0 100-6 3 3 0 000 6zM2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="#555" strokeWidth="1.4" strokeLinecap="round"/>
+                  </svg>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#555' }}>{huespedes}</span>
+                </div>
+                {/* Toggle */}
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
+                  style={{ transform: verResumen ? 'rotate(180deg)' : 'none', transition: 'transform .2s', flexShrink: 0 }}>
+                  <path d="M3 6l5 5 5-5" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Detalle desplegable */}
+          {verResumen && (
+            <div style={{ borderTop: '0.5px solid #f0f0f0', padding: '12px 16px 14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#888', marginBottom: 6 }}>
+                <span>Subtotal · {fmtM(hab.precio_noche)} × {nn} noche{nn!==1?'s':''}{huespedes > 1 ? ` × ${huespedes} pax` : ''}</span>
+                <span style={{ color: '#111', fontWeight: 500 }}>{fmtM(total)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#888', marginBottom: 10 }}>
+                <span>Impuestos y tasas</span>
+                <span style={{ color: '#111', fontWeight: 500 }}>$0</span>
+              </div>
+              <div style={{ background: '#fff8f5', borderRadius: 10, padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#FF6A2F' }}>Pagas ahora (30%)</div>
+                  <div style={{ fontSize: 10, color: '#bbb', marginTop: 2 }}>Resto al check-in: {fmtM(resto)}</div>
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#FF6A2F' }}>{fmtM(anticipo)}</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ══ PASO 1 ══ */}
+        {paso === 1 && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 6px rgba(0,0,0,.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M10 3L6 8l4 5" stroke="#333" strokeWidth="1.6" strokeLinecap="round"/></svg>
+              </div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#111' }}>Agregar huésped</div>
+                <div style={{ fontSize: 11, color: '#aaa' }}>Ingresa los datos del titular de la reserva</div>
+              </div>
+            </div>
+
+            <Campo icon={<IconPersona />} label="Nombre completo *">
+              <input type="text" value={form.nombre} onChange={set('nombre')}
+                placeholder="María González"
+                style={{ ...inputStyle, borderBottomColor: form.nombre ? '#FF6A2F' : '#eee' }} />
+            </Campo>
+
+            <Campo icon={<IconEmail />} label="Email *">
+              <input type="email" value={form.email} onChange={set('email')}
+                placeholder="tu@email.com"
+                style={{ ...inputStyle, borderBottomColor: form.email ? '#FF6A2F' : '#eee' }} />
+            </Campo>
+
+            <Campo icon={<IconTel />} label="Teléfono *">
+              <input type="tel" value={form.telefono} onChange={set('telefono')}
+                placeholder="+56 9 1234 5678"
+                style={{ ...inputStyle, borderBottomColor: form.telefono ? '#FF6A2F' : '#eee' }} />
+            </Campo>
+
+            <Campo icon={<IconNota />} label="Notas (opcional)">
+              <textarea value={form.notas} onChange={set('notas')} rows={2}
+                placeholder="Hora de llegada, peticiones especiales..."
+                style={{ ...inputStyle, resize: 'none', lineHeight: 1.5 }} />
+            </Campo>
+
+            {/* Badges confianza */}
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 6 }}>
+              {[
+                { label: 'Cancelación gratis 48h', color: '#1D9E75' },
+                { label: 'Pago seguro', color: '#1D9E75' },
+                { label: 'Confirmación inmediata', color: '#FF6A2F' },
+              ].map(({ label, color }) => (
+                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 9, color: '#555', background: '#fff', border: '0.5px solid #e8e8e8', borderRadius: 20, padding: '3px 8px', boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
+                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                  {label}
+                </div>
               ))}
             </div>
 
-            <div className="flex flex-col gap-4">
-              <div>
-                <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Nombre completo</label>
-                <input
-                  type="text" value={form.nombre} onChange={set('nombre')}
-                  placeholder="María González"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-              </div>
+            {error && <p style={{ color: '#E24B4A', fontSize: 12, margin: '8px 0' }}>{error}</p>}
+          </>
+        )}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Email</label>
-                  <input
-                    type="email" value={form.email} onChange={set('email')}
-                    placeholder="tu@email.com"
-                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Teléfono</label>
-                  <input
-                    type="tel" value={form.telefono} onChange={set('telefono')}
-                    placeholder="+56 9 ..."
-                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-                </div>
+        {/* ══ PASO 2 ══ */}
+        {paso === 2 && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 6px rgba(0,0,0,.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <IconPago c="#333" />
               </div>
-
               <div>
-                <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Notas (opcional)</label>
-                <textarea
-                  value={form.notas} onChange={set('notas')}
-                  placeholder="Hora estimada de llegada, peticiones especiales..."
-                  rows={2}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" />
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#111' }}>Método de pago</div>
+                <div style={{ fontSize: 11, color: '#aaa' }}>Elige cómo quieres pagar el anticipo</div>
               </div>
             </div>
 
-            {error && <p className="text-red-500 text-sm mt-3">{error}</p>}
-
-            <button onClick={avanzar}
-              className="w-full mt-5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-xl py-3 text-sm transition">
-              Continuar →
-            </button>
-          </div>
-        )}
-
-        {/* ── PASO 2: Resumen y pago ── */}
-        {paso === 2 && (
-          <div>
-            <p className="text-xs text-gray-400 uppercase tracking-wide mb-4">Paso 2 de 2 · Confirmar y pagar</p>
-
-            {/* Datos ingresados */}
-            <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4">
-              <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">Reserva a nombre de</p>
-              <div className="flex flex-col gap-1.5 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Nombre</span>
-                  <span className="font-medium text-gray-900">{form.nombre}</span>
+            {/* Resumen datos */}
+            <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 2px 12px rgba(0,0,0,.07)', padding: '12px 14px', marginBottom: 12 }}>
+              {[
+                { icon: <IconPersona c="#aaa" />, label: 'Huésped', val: form.nombre },
+                { icon: <IconEmail c="#aaa" />,   label: 'Email',   val: form.email },
+                { icon: <IconTel c="#aaa" />,     label: 'Teléfono', val: form.telefono },
+              ].map(({ icon, label, val }) => (
+                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: '0.5px solid #f5f5f5' }}>
+                  {icon}
+                  <span style={{ fontSize: 11, color: '#aaa', minWidth: 60 }}>{label}</span>
+                  <span style={{ fontSize: 12, fontWeight: 500, color: '#111', flex: 1, textAlign: 'right' }}>{val}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Email</span>
-                  <span className="text-gray-700">{form.email}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Teléfono</span>
-                  <span className="text-gray-700">{form.telefono}</span>
-                </div>
-              </div>
-              <button onClick={() => setPaso(1)} className="text-xs text-green-600 mt-3">
-                Editar datos
+              ))}
+              <button onClick={() => setPaso(1)}
+                style={{ fontSize: 10, color: '#FF6A2F', background: 'none', border: 'none', cursor: 'pointer', marginTop: 8, padding: 0, fontFamily: "'DM Sans',sans-serif" }}>
+                ← Editar datos
               </button>
             </div>
 
-            {/* Anticipo */}
-            <div className="bg-white rounded-xl border border-gray-100 p-4 mb-5">
-              <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">Desglose de pago</p>
-              <div className="flex flex-col gap-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">{formatPrecio(hab.precio_noche)} × {nn} noches</span>
-                  <span className="text-gray-700">{formatPrecio(total)}</span>
-                </div>
-                <div className="h-px bg-gray-100 my-1" />
-                <div className="flex justify-between font-medium">
-                  <span className="text-gray-700">Total</span>
-                  <span className="text-gray-900">{formatPrecio(total)}</span>
-                </div>
-                <div className="bg-green-50 rounded-lg p-3 mt-1">
-                  <div className="flex justify-between text-green-800 font-medium">
-                    <span>Pagas ahora (30%)</span>
-                    <span>{formatPrecio(anticipo)}</span>
+            {/* Medios de pago */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+              {MEDIOS_PAGO.map(m => (
+                <div key={m.id} onClick={() => setMedioPago(m.id)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#fff', border: medioPago === m.id ? '1.5px solid #FF6A2F' : '0.5px solid #eee', borderRadius: 14, padding: '12px 14px', cursor: 'pointer', boxShadow: medioPago === m.id ? '0 2px 12px rgba(255,106,47,.15)' : '0 1px 6px rgba(0,0,0,.05)', transition: 'all .15s' }}>
+                  <div style={{ width: 18, height: 18, borderRadius: '50%', border: medioPago === m.id ? '1.5px solid #FF6A2F' : '1.5px solid #ddd', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {medioPago === m.id && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#FF6A2F' }} />}
                   </div>
-                  <div className="flex justify-between text-green-700 text-xs mt-1">
-                    <span>Resto al check-in</span>
-                    <span>{formatPrecio(resto)}</span>
+                  <div style={{ width: 44, height: 26, borderRadius: 7, background: m.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 1px 4px rgba(0,0,0,.1)' }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: m.color }}>
+                      {m.id === 'flow' ? 'Flow' : m.id === 'mp' ? 'MP' : 'Stripe'}
+                    </span>
                   </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>{m.nombre}</div>
+                    <div style={{ fontSize: 10, color: '#aaa' }}>{m.desc}</div>
+                  </div>
+                  {m.id === 'mp' && <div style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: '#E1F5EE', color: '#085041', fontWeight: 600 }}>LATAM</div>}
+                  {m.id === 'stripe' && <div style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: '#EEF0FF', color: '#4338CA', fontWeight: 600 }}>Mundial</div>}
                 </div>
-              </div>
+              ))}
             </div>
 
-            {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
-
-            <button
-              onClick={confirmarYPagar}
-              disabled={enviando}
-              className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white font-medium rounded-xl py-3 text-sm transition mb-3">
-              {enviando ? 'Procesando...' : `Pagar ${formatPrecio(anticipo)} con Flow.cl`}
-            </button>
-
-            <div className="flex items-center justify-center gap-2 text-xs text-gray-400 mb-3">
-              <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />
-              Procesado por Flow · Pago 100% seguro
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontSize: 10, color: '#bbb', marginBottom: 4 }}>
+              <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M5 7V5a3 3 0 016 0v2M4 7h8a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1z" stroke="#bbb" strokeWidth="1.4" strokeLinecap="round"/></svg>
+              Pago 100% seguro · Datos encriptados
             </div>
 
             {hostal.telefono && (
-              <a href={`https://wa.me/${hostal.telefono.replace(/\D/g,'')}`}
-                target="_blank" rel="noreferrer"
-                className="block text-center text-xs text-gray-400 hover:text-green-600">
-                ¿Tienes dudas? Escríbenos por WhatsApp
+              <a href={`https://wa.me/${hostal.telefono.replace(/\D/g,'')}`} target="_blank" rel="noreferrer"
+                style={{ display: 'block', textAlign: 'center', fontSize: 10, color: '#aaa', textDecoration: 'none', marginBottom: 4 }}>
+                ¿Dudas? Escríbenos por WhatsApp
               </a>
             )}
-          </div>
-        )}
 
+            {error && <p style={{ color: '#E24B4A', fontSize: 12, margin: '8px 0' }}>{error}</p>}
+          </>
+        )}
       </div>
+
+      {/* ── Barra inferior fija ── */}
+      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, background: '#fff', borderTop: '0.5px solid #eee', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 -4px 20px rgba(0,0,0,.08)', zIndex: 100 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 11, color: '#aaa' }}>{fmtFecha(entrada)} · {fmtFecha(salida)}</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#111', letterSpacing: '-.02em' }}>{fmtM(paso === 2 ? anticipo : total)}</div>
+          {paso === 2 && <div style={{ fontSize: 10, color: '#FF6A2F', fontWeight: 600 }}>Anticipo 30%</div>}
+        </div>
+        <button
+          onClick={paso === 1 ? avanzar : confirmarYPagar}
+          disabled={enviando}
+          style={{ background: enviando ? '#ddd' : '#FF6A2F', color: '#fff', border: 'none', borderRadius: 50, padding: '13px 28px', fontSize: 14, fontWeight: 700, cursor: enviando ? 'default' : 'pointer', fontFamily: "'DM Sans',sans-serif", flexShrink: 0, boxShadow: enviando ? 'none' : '0 4px 16px rgba(255,106,47,.4)', letterSpacing: '-.01em' }}>
+          {enviando ? 'Procesando...' : paso === 1 ? 'Continuar →' : `Pagar con ${medio?.nombre}`}
+        </button>
+      </div>
+
+      {/* ── Calendario full-screen ── */}
+      {verCalendario && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: '#fff', overflowY: 'auto', display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto', left: '50%', transform: 'translateX(-50%)', width: '100%' }}>
+          <CalendarioReserva
+            precioNoche={Math.round(hab.precio_noche * monedaActual.tasa)}
+            inicioInicial={entrada}
+            finInicial={salida}
+            onClose={(ini, fin) => {
+              if (ini && fin) {
+                setEntrada(ini.toISOString().split('T')[0]);
+                setSalida(fin.toISOString().split('T')[0]);
+              }
+              setVerCalendario(false);
+            }}
+          />
+        </div>
+      )}
+
     </div>
   );
 }
