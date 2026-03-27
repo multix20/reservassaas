@@ -258,33 +258,11 @@ function HeroSection({ hostal, onReservar }) {
       </div>
 
       {/* Contenido central */}
-      <div style={{ position: 'relative', zIndex: 10, flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', padding: '0 20px 60px' }}>
-        <div style={{
-          background: 'linear-gradient(135deg, rgba(255,255,255,.72) 0%, rgba(255,255,255,.52) 100%)',
-          backdropFilter: 'blur(18px)',
-          WebkitBackdropFilter: 'blur(18px)',
-          borderRadius: 22,
-          padding: '20px 20px 18px',
-          maxWidth: 230,
-          border: '1px solid rgba(255,255,255,.55)',
-          boxShadow: '0 8px 32px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.6)',
-        }}>
-          <p style={{ fontSize: 10, fontWeight: 700, color: '#FF6A2F', letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 5 }}>
-            {hostal.ciudad || 'Chile'}
-          </p>
-          <h1 style={{ fontSize: 22, fontWeight: 900, color: '#111', lineHeight: 1.1, marginBottom: 8, letterSpacing: '-.03em' }}>
-            {hostal.nombre}
-          </h1>
-          {hostal.descripcion && (
-            <p style={{ fontSize: 11, color: 'rgba(0,0,0,.6)', lineHeight: 1.55, marginBottom: 16 }}>
-              {hostal.descripcion.slice(0, 70)}{hostal.descripcion.length > 70 ? '...' : ''}
-            </p>
-          )}
-          <button onClick={onReservar}
-            style={{ width: '100%', background: 'linear-gradient(135deg, #FF6A2F 0%, #e85520 100%)', color: '#fff', border: 'none', borderRadius: 50, padding: '11px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", boxShadow: '0 4px 16px rgba(255,106,47,.45)', letterSpacing: '-.01em' }}>
-            Reservar ahora →
-          </button>
-        </div>
+      <div style={{ position: 'relative', zIndex: 10, flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', padding: '0 22px 178px 0' }}>
+        <button onClick={onReservar}
+          style={{ background: 'linear-gradient(135deg, #FF6A2F 0%, #e85520 100%)', color: '#fff', border: 'none', borderRadius: 50, padding: '18px 40px', fontSize: 18, fontWeight: 700, cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", boxShadow: '0 4px 24px rgba(255,106,47,.5)', letterSpacing: '-.01em' }}>
+          Reservar ahora →
+        </button>
       </div>
 
       {/* Info inferior */}
