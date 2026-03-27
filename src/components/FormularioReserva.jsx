@@ -100,8 +100,9 @@ export default function FormularioReserva() {
 
   if (!state?.hab) { navigate(`/${tenant_id}`); return null; }
 
-  const { hab, hostal, entrada: entradaInicial, salida: salidaInicial, huespedes: huespedesInicial = 1 } = state;
+  const { hab: habInicial, hostal, entrada: entradaInicial, salida: salidaInicial, huespedes: huespedesInicial = 1, habitaciones = [] } = state;
 
+  const [hab, setHab]                 = useState(habInicial);
   const [entrada, setEntrada]         = useState(entradaInicial);
   const [salida, setSalida]           = useState(salidaInicial);
   const [huespedes, setHuespedes]     = useState(huespedesInicial);
@@ -336,7 +337,26 @@ export default function FormularioReserva() {
                 </div>
               )}
             </div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#111', marginBottom: 6 }}>{hab.nombre}</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#111', marginBottom: 8 }}>{hab.nombre}</div>
+            {habitaciones.length > 1 && (
+              <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8, marginBottom: 4 }}>
+                {habitaciones.map((h, i) => {
+                  const fotos = ['/hcompartida.jpg', '/hdoble.jpg', '/Habitacion1.jpg', '/hdoble.jpg'];
+                  const precio = hab.tarifa === 'nr' ? Math.round(h.precio_noche * 0.9) : h.precio_noche;
+                  const activa = h.id === hab.id;
+                  return (
+                    <div key={h.id} onClick={() => setHab({ ...h, precio_noche: precio, tarifa: hab.tarifa })}
+                      style={{ flexShrink: 0, width: 80, borderRadius: 10, overflow: 'hidden', border: activa ? '2px solid #FF6A2F' : '1.5px solid #eee', cursor: 'pointer', opacity: activa ? 1 : 0.75 }}>
+                      <img src={fotos[i % fotos.length]} alt={h.nombre} style={{ width: '100%', height: 52, objectFit: 'cover' }} />
+                      <div style={{ padding: '4px 6px' }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: activa ? '#FF6A2F' : '#555', lineHeight: 1.2, marginBottom: 2 }}>{h.nombre}</div>
+                        <div style={{ fontSize: 9, color: '#888' }}>${(precio/1000).toFixed(0)}K/n</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <div style={{ fontSize: 30, fontWeight: 800, color: '#111', letterSpacing: '-.03em', lineHeight: 1 }}>
                 {fmtM(total)}

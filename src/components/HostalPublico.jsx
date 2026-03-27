@@ -107,7 +107,7 @@ export default function HostalPublico() {
       ? Math.round(hab.precio_noche * (1 - DESCUENTO_NR))
       : hab.precio_noche;
     navigate(`/${tenant_id}/reservar/${hab.id}`, {
-      state: { hab: { ...hab, precio_noche: precioFinal, tarifa }, hostal, entrada, salida, huespedes: huespedsPorHab[hab.id] || 1 }
+      state: { hab: { ...hab, precio_noche: precioFinal, tarifa }, hostal, entrada, salida, huespedes: huespedsPorHab[hab.id] || 1, habitaciones }
     });
   };
 
