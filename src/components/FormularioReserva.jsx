@@ -108,6 +108,14 @@ export default function FormularioReserva() {
   const [huespedes, setHuespedes]     = useState(huespedesInicial);
   const [verCalendario, setVerCalendario] = useState(false);
   const [verHuespedes, setVerHuespedes]   = useState(false);
+  const [carrusel, setCarrusel]           = useState(null); // { fotos, idx, nombre }
+
+  const FOTOS_HAB = [
+    ['/hcompartida.jpg', '/Habitacion1.jpg', '/iglu.jpg'],
+    ['/hdoble.jpg', '/Habitacion1.jpg', '/hcompartida.jpg'],
+    ['/Habitacion1.jpg', '/hdoble.jpg', '/iglu.jpg'],
+    ['/iglu.jpg', '/hcompartida.jpg', '/hdoble.jpg'],
+  ];
 
   const nn       = noches(entrada, salida);
   const total    = hab.precio_noche * nn * huespedes;
@@ -341,13 +349,13 @@ export default function FormularioReserva() {
             {habitaciones.length > 1 && (
               <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8, marginBottom: 4 }}>
                 {habitaciones.map((h, i) => {
-                  const fotos = ['/hcompartida.jpg', '/hdoble.jpg', '/Habitacion1.jpg', '/hdoble.jpg'];
+                  const fotos = FOTOS_HAB[i % FOTOS_HAB.length];
                   const precio = hab.tarifa === 'nr' ? Math.round(h.precio_noche * 0.9) : h.precio_noche;
                   const activa = h.id === hab.id;
                   return (
-                    <div key={h.id} onClick={() => setHab({ ...h, precio_noche: precio, tarifa: hab.tarifa })}
+                    <div key={h.id} onClick={() => { setHab({ ...h, precio_noche: precio, tarifa: hab.tarifa }); setCarrusel({ fotos, idx: 0, nombre: h.nombre }); }}
                       style={{ flexShrink: 0, width: 80, borderRadius: 10, overflow: 'hidden', border: activa ? '2px solid #FF6A2F' : '1.5px solid #eee', cursor: 'pointer', opacity: activa ? 1 : 0.75 }}>
-                      <img src={fotos[i % fotos.length]} alt={h.nombre} style={{ width: '100%', height: 52, objectFit: 'cover' }} />
+                      <img src={fotos[0]} alt={h.nombre} style={{ width: '100%', height: 52, objectFit: 'cover' }} />
                       <div style={{ padding: '4px 6px' }}>
                         <div style={{ fontSize: 9, fontWeight: 700, color: activa ? '#FF6A2F' : '#555', lineHeight: 1.2, marginBottom: 2 }}>{h.nombre}</div>
                         <div style={{ fontSize: 9, color: '#888' }}>${(precio/1000).toFixed(0)}K/n</div>
@@ -548,6 +556,69 @@ export default function FormularioReserva() {
           {enviando ? 'Procesando...' : paso === 1 ? 'Continuar →' : `Pagar con ${medio?.nombre}`}
         </button>
       </div>
+
+      {/* ── Carrusel de imágenes ── */}
+      {carrusel && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,.92)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', maxWidth: 480, margin: '0 auto', left: '50%', transform: 'translateX(-50%)', width: '100%' }}
+          onClick={() => setCarrusel(null)}>
+          {/* Botón cerrar */}
+          <button onClick={() => setCarrusel(null)}
+            style={{ position: 'absolute', top: 16, right: 16, width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,.15)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M3 3l10 10M13 3L3 13" stroke="#fff" strokeWidth="1.8" strokeLinecap="round"/>
+            </svg>
+          </button>
+
+          {/* Nombre habitación */}
+          <div style={{ position: 'absolute', top: 20, left: 0, right: 0, textAlign: 'center', fontSize: 13, fontWeight: 700, color: '#fff', letterSpacing: '-.01em', padding: '0 56px' }}>
+            {carrusel.nombre}
+          </div>
+
+          {/* Imagen principal */}
+          <div style={{ width: '100%', padding: '0 16px', marginTop: 40 }} onClick={e => e.stopPropagation()}>
+            <img
+              src={carrusel.fotos[carrusel.idx]}
+              alt=""
+              style={{ width: '100%', maxHeight: 340, objectFit: 'cover', borderRadius: 16, display: 'block' }}
+            />
+          </div>
+
+          {/* Flechas navegación */}
+          {carrusel.fotos.length > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginTop: 20 }} onClick={e => e.stopPropagation()}>
+              <button
+                onClick={() => setCarrusel(c => ({ ...c, idx: (c.idx - 1 + c.fotos.length) % c.fotos.length }))}
+                style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,255,255,.18)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L6 8l4 5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </button>
+
+              {/* Dots */}
+              <div style={{ display: 'flex', gap: 7 }}>
+                {carrusel.fotos.map((_, i) => (
+                  <div key={i} onClick={() => setCarrusel(c => ({ ...c, idx: i }))}
+                    style={{ width: i === carrusel.idx ? 18 : 7, height: 7, borderRadius: 4, background: i === carrusel.idx ? '#FF6A2F' : 'rgba(255,255,255,.4)', transition: 'all .2s', cursor: 'pointer' }} />
+                ))}
+              </div>
+
+              <button
+                onClick={() => setCarrusel(c => ({ ...c, idx: (c.idx + 1) % c.fotos.length }))}
+                style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,255,255,.18)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3l4 5-4 5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </button>
+            </div>
+          )}
+
+          {/* Thumbnails */}
+          <div style={{ display: 'flex', gap: 8, marginTop: 16 }} onClick={e => e.stopPropagation()}>
+            {carrusel.fotos.map((f, i) => (
+              <div key={i} onClick={() => setCarrusel(c => ({ ...c, idx: i }))}
+                style={{ width: 56, height: 42, borderRadius: 8, overflow: 'hidden', border: i === carrusel.idx ? '2px solid #FF6A2F' : '2px solid transparent', cursor: 'pointer', opacity: i === carrusel.idx ? 1 : 0.55, transition: 'all .2s' }}>
+                <img src={f} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Calendario full-screen ── */}
       {verCalendario && (
