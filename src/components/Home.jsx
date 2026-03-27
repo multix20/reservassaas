@@ -258,9 +258,9 @@ function HeroSection({ hostal, onReservar }) {
       </div>
 
       {/* Contenido central */}
-      <div style={{ position: 'relative', zIndex: 10, flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', padding: '0 22px 178px 0' }}>
+      <div style={{ position: 'relative', zIndex: 10, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexDirection: 'column', padding: '0 10px 170px' }}>
         <button onClick={onReservar}
-          style={{ background: 'linear-gradient(135deg, #FF6A2F 0%, #e85520 100%)', color: '#fff', border: 'none', borderRadius: 50, padding: '18px 40px', fontSize: 18, fontWeight: 700, cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", boxShadow: '0 4px 24px rgba(255,106,47,.5)', letterSpacing: '-.01em' }}>
+          style={{ background: 'linear-gradient(135deg, #FF6A2F 0%, #e85520 100%)', color: '#fff', border: 'none', borderRadius: 50, padding: '30px 0', fontSize: 20, fontWeight: 700, cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", boxShadow: '0 4px 32px rgba(255,106,47,.6)', letterSpacing: '-.01em', width: '100%' }}>
           Reservar ahora →
         </button>
       </div>
