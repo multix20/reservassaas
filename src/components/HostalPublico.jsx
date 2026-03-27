@@ -125,7 +125,7 @@ export default function HostalPublico() {
   const wspUrl  = hostal.telefono ? `https://wa.me/${hostal.telefono.replace(/\D/g,'')}` : null;
 
   return (
-    <div style={{ fontFamily:"'DM Sans',sans-serif", maxWidth:480, margin:'0 auto', background:'#f8f8f8', minHeight:'100vh', paddingTop:48 }}>
+    <div style={{ fontFamily:"'DM Sans',sans-serif", maxWidth:480, margin:'0 auto', background:'#f8f8f8', minHeight:'100vh', paddingTop:72 }}>
 
       {/* ── Header fijo ── */}
       <div style={{ position:'fixed', top:0, left:'50%', transform:'translateX(-50%)', width:'100%', maxWidth:480, zIndex:50, background:'#fff', borderBottom:'0.5px solid #eee', padding:'14px 24px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>

@@ -156,6 +156,7 @@ export default function FormularioReserva() {
         huesped_telefono: form.telefono.trim(),
         fecha_entrada: entrada, fecha_salida: salida,
         precio_por_noche: hab.precio_noche,
+        num_huespedes: huespedes,
         notas: form.notas.trim() || null,
         estado: 'pendiente',
       });
@@ -253,12 +254,30 @@ export default function FormularioReserva() {
         <div style={{ background: '#fff', borderRadius: 50, border: '1px solid #e8e8e8', boxShadow: '0 1px 6px rgba(0,0,0,.06)', marginBottom: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', padding: '5px' }}>
             {/* Lado izquierdo — abre calendario */}
-            <div onClick={() => setVerCalendario(true)} style={{ display: 'flex', alignItems: 'center', flex: 1, cursor: 'pointer', gap: 0 }}>
-              <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#FF6A2F', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: 0 }}>
+              <div onClick={() => setVerCalendario(true)} style={{ width: 38, height: 38, borderRadius: '50%', background: '#FF6A2F', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
                 <IconCalendario />
               </div>
-              <div style={{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: 500, color: '#111', padding: '0 10px' }}>
-                {fmtFecha(entrada)} → {fmtFecha(salida)} · {nn} noche{nn !== 1 ? 's' : ''}
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '0 6px' }}>
+                <button
+                  onClick={() => {
+                    const d = new Date(salida + 'T12:00');
+                    d.setDate(d.getDate() - 1);
+                    const nueva = d.toISOString().slice(0, 10);
+                    if (nueva > entrada) setSalida(nueva);
+                  }}
+                  style={{ width: 24, height: 24, borderRadius: '50%', border: '1.5px solid #ddd', background: '#fff', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', lineHeight: 1, flexShrink: 0 }}>−</button>
+                <div onClick={() => setVerCalendario(true)} style={{ textAlign: 'center', fontSize: 12, fontWeight: 600, color: '#111', cursor: 'pointer', minWidth: 90 }}>
+                  {fmtFecha(entrada)} → {fmtFecha(salida)}
+                  <div style={{ fontSize: 10, color: '#FF6A2F', fontWeight: 700 }}>{nn} noche{nn !== 1 ? 's' : ''}</div>
+                </div>
+                <button
+                  onClick={() => {
+                    const d = new Date(salida + 'T12:00');
+                    d.setDate(d.getDate() + 1);
+                    setSalida(d.toISOString().slice(0, 10));
+                  }}
+                  style={{ width: 24, height: 24, borderRadius: '50%', border: '1.5px solid #FF6A2F', background: '#FF6A2F', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', lineHeight: 1, flexShrink: 0 }}>+</button>
               </div>
             </div>
             {/* Divisor */}
