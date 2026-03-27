@@ -183,7 +183,7 @@ export default function FormularioReserva() {
 
           {/* Izquierda: volver + nombre */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-            <button onClick={() => paso === 1 ? navigate(-1) : setPaso(1)}
+            <button onClick={() => paso === 1 ? navigate(`/${tenant_id}`) : setPaso(1)}
               style={{ width: 32, height: 32, borderRadius: '50%', background: '#f5f5f5', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L6 8l4 5" stroke="#333" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
@@ -267,9 +267,14 @@ export default function FormularioReserva() {
                     if (nueva > entrada) setSalida(nueva);
                   }}
                   style={{ width: 24, height: 24, borderRadius: '50%', border: '1.5px solid #ddd', background: '#fff', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', lineHeight: 1, flexShrink: 0 }}>−</button>
-                <div onClick={() => setVerCalendario(true)} style={{ textAlign: 'center', fontSize: 12, fontWeight: 600, color: '#111', cursor: 'pointer', minWidth: 90 }}>
-                  {fmtFecha(entrada)} → {fmtFecha(salida)}
-                  <div style={{ fontSize: 10, color: '#FF6A2F', fontWeight: 700 }}>{nn} noche{nn !== 1 ? 's' : ''}</div>
+                <div onClick={() => setVerCalendario(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: '#111', cursor: 'pointer' }}>
+                  <span>{fmtFecha(entrada)} → {fmtFecha(salida)}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                      <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" fill="#555" stroke="#555" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#555' }}>{nn}</span>
+                  </div>
                 </div>
                 <button
                   onClick={() => {
