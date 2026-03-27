@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react'; // useRef kept for roomsRef
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import supabase from '../lib/supabase';
 import CalendarioReserva from './CalendarioReserva';
 
@@ -36,18 +36,21 @@ const DESCUENTO_NR = 0.15;
 export default function HostalPublico() {
   const { tenant_id } = useParams();
   const navigate      = useNavigate();
+  const { state: navState } = useLocation();
   const roomsRef      = useRef(null);
 
   const [hostal, setHostal]               = useState(null);
   const [habitaciones, setHabitaciones]   = useState([]);
   const [cargando, setCargando]           = useState(true);
   const [error, setError]                 = useState(null);
-  const [entrada, setEntrada]             = useState(hoy());
-  const [salida, setSalida]               = useState(manana());
+  const [entrada, setEntrada]             = useState(navState?.entrada || hoy());
+  const [salida, setSalida]               = useState(navState?.salida || manana());
   const [disponibilidad, setDisponibilidad] = useState({});
   const [expandido, setExpandido]         = useState(null); // 'fechas' | null
   const [mostrarCodigo, setMostrarCodigo] = useState(false);
-  const [huespedsPorHab, setHuespedsPorHab] = useState({});
+  const [huespedsPorHab, setHuespedsPorHab] = useState(
+    navState?.hab_id ? { [navState.hab_id]: navState.huespedes || 1 } : {}
+  );
   const [codigo, setCodigo]               = useState('');
   const [buscado, setBuscado]             = useState(false);
   const [politicas, setPoliticas]         = useState(false);

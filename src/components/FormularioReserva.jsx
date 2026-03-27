@@ -183,7 +183,7 @@ export default function FormularioReserva() {
 
           {/* Izquierda: volver + nombre */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-            <button onClick={() => paso === 1 ? navigate(`/${tenant_id}`) : setPaso(1)}
+            <button onClick={() => paso === 1 ? navigate(`/${tenant_id}`, { state: { entrada, salida, huespedes, hab_id: hab.id } }) : setPaso(1)}
               style={{ width: 32, height: 32, borderRadius: '50%', background: '#f5f5f5', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L6 8l4 5" stroke="#333" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
