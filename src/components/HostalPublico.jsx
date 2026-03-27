@@ -367,7 +367,7 @@ export default function HostalPublico() {
                   </div>
 
                   {/* Tarifas */}
-                  <div style={{ margin:'105px 16px 16px', border:'0.5px solid #f0f0f0', borderRadius:14, overflow:'hidden' }}>
+                  <div style={{ margin:'12px 16px 16px', border:'0.5px solid #f0f0f0', borderRadius:14, overflow:'hidden' }}>
 
                     <div style={{ display:'flex', alignItems:'center', padding:'12px 14px', borderBottom:'0.5px solid #f7f7f7', gap:8 }}>
                       <div style={{ flex:1 }}>
