@@ -314,21 +314,33 @@ export default function HostalPublico() {
                       </div>
                       {/* Noches */}
                       {nn > 0 && (
-                        <div style={{ display:'flex', alignItems:'center', gap:4, background:'#f5f5f5', borderRadius:20, padding:'4px 10px' }}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" fill="#555" stroke="#555" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                          <span style={{ fontSize:13, fontWeight:600, color:'#555' }}>{nn}</span>
+                        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                          <button onClick={() => { const d = new Date(salida+'T12:00'); d.setDate(d.getDate()-1); const nueva = d.toISOString().slice(0,10); if (nueva > entrada) setSalida(nueva); }}
+                            style={{ width:28, height:28, borderRadius:'50%', border:'1px solid #ddd', background:'#fff', fontSize:16, cursor: nn<=1?'default':'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#555', lineHeight:1, flexShrink:0 }}>−</button>
+                          <div onClick={() => setExpandido('fechas')} style={{ position:'relative', width:24, height:24, flexShrink:0, cursor:'pointer' }}>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                              <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" fill="#888" stroke="#888" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                            <div style={{ position:'absolute', top:-3, right:-3, width:15, height:15, borderRadius:'50%', background:'#FF6A2F', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                              <span style={{ fontSize:8, fontWeight:800, color:'#fff', lineHeight:1 }}>{nn}</span>
+                            </div>
+                          </div>
+                          <button onClick={() => { const d = new Date(salida+'T12:00'); d.setDate(d.getDate()+1); setSalida(d.toISOString().slice(0,10)); }}
+                            style={{ width:28, height:28, borderRadius:'50%', border:'1px solid #FF6A2F', background:'#FF6A2F', fontSize:16, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', lineHeight:1, flexShrink:0 }}>+</button>
                         </div>
                       )}
                       {/* Contador huéspedes */}
                       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                        <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-                          <path d="M8 7a3 3 0 100-6 3 3 0 000 6zM2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="#999" strokeWidth="1.4" strokeLinecap="round"/>
-                        </svg>
                         <button onClick={() => setHuespedesHab(huespedesHab - 1)} disabled={noDisp || huespedesHab <= 1}
                           style={{ width:28, height:28, borderRadius:'50%', border:'1px solid #ddd', background:'#fff', fontSize:16, cursor: huespedesHab<=1?'default':'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#555', lineHeight:1, flexShrink:0 }}>−</button>
-                        <span style={{ fontSize:15, fontWeight:700, color:'#111', minWidth:16, textAlign:'center' }}>{huespedesHab}</span>
+                        <div style={{ position:'relative', width:24, height:24, flexShrink:0 }}>
+                          <svg width="24" height="24" viewBox="0 0 16 16" fill="none">
+                            <path d="M8 7a3 3 0 100-6 3 3 0 000 6zM2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke={noDisp?'#ccc':'#999'} strokeWidth="1.4" strokeLinecap="round"/>
+                          </svg>
+                          <div style={{ position:'absolute', top:-3, right:-3, width:15, height:15, borderRadius:'50%', background:'#FF6A2F', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                            <span style={{ fontSize:8, fontWeight:800, color:'#fff', lineHeight:1 }}>{huespedesHab}</span>
+                          </div>
+                        </div>
                         <button onClick={() => setHuespedesHab(huespedesHab + 1)} disabled={noDisp || huespedesHab >= capacidad}
                           style={{ width:28, height:28, borderRadius:'50%', border:`1px solid ${huespedesHab>=capacidad?'#ddd':'#FF6A2F'}`, background: huespedesHab>=capacidad?'#f5f5f5':'#FF6A2F', fontSize:16, cursor: huespedesHab>=capacidad?'default':'pointer', display:'flex', alignItems:'center', justifyContent:'center', color: huespedesHab>=capacidad?'#aaa':'#fff', lineHeight:1, flexShrink:0 }}>+</button>
                       </div>
@@ -355,7 +367,7 @@ export default function HostalPublico() {
                   </div>
 
                   {/* Tarifas */}
-                  <div style={{ margin:'10px 16px 16px', border:'0.5px solid #f0f0f0', borderRadius:14, overflow:'hidden' }}>
+                  <div style={{ margin:'29px 16px 16px', border:'0.5px solid #f0f0f0', borderRadius:14, overflow:'hidden' }}>
 
                     <div style={{ display:'flex', alignItems:'center', padding:'12px 14px', borderBottom:'0.5px solid #f7f7f7', gap:8 }}>
                       <div style={{ flex:1 }}>
@@ -363,8 +375,8 @@ export default function HostalPublico() {
                         <div style={{ fontSize:12, color:'#aaa' }}>Cancelación gratis 48h antes</div>
                       </div>
                       <div style={{ textAlign:'right', flexShrink:0 }}>
-                        <div style={{ fontSize:16, fontWeight:600, color: noDisp?'#aaa':'#111' }}>{fmt(precioFlexPorPersona)}</div>
-                        {nn>0 && !noDisp && <div style={{ fontSize:12, color:'#888' }}>Total {fmt(precioFlexPorPersona * nn)}</div>}
+                        <div style={{ fontSize:16, fontWeight:600, color: noDisp?'#aaa':'#111' }}>{fmt(nn>0 ? precioFlexPorPersona * nn : precioFlexPorPersona)}</div>
+                        {nn>0 && !noDisp && <div style={{ fontSize:12, color:'#888' }}>{fmt(hab.precio_noche)} × {nn} noche{nn!==1?'s':''}</div>}
                       </div>
                       <button onClick={() => !noDisp && nn>0 && reservar(hab,'flexible')}
                         disabled={noDisp || nn<=0}
@@ -379,9 +391,9 @@ export default function HostalPublico() {
                         <div style={{ fontSize:12, color:'#aaa' }}>Sin cancelación · mejor precio</div>
                       </div>
                       <div style={{ textAlign:'right', flexShrink:0 }}>
-                        <div style={{ fontSize:12, color:'#bbb', textDecoration:'line-through' }}>{fmt(precioFlexPorPersona)}</div>
-                        <div style={{ fontSize:16, fontWeight:600, color: noDisp?'#aaa':'#1D9E75' }}>{fmt(precioNRPorPersona)}</div>
-                        {nn>0 && !noDisp && <div style={{ fontSize:12, color:'#888' }}>Total {fmt(precioNRPorPersona*nn)}</div>}
+                        <div style={{ fontSize:12, color:'#bbb', textDecoration:'line-through' }}>{fmt(nn>0 ? precioFlexPorPersona * nn : precioFlexPorPersona)}</div>
+                        <div style={{ fontSize:16, fontWeight:600, color: noDisp?'#aaa':'#1D9E75' }}>{fmt(nn>0 ? precioNRPorPersona * nn : precioNRPorPersona)}</div>
+                        {nn>0 && !noDisp && <div style={{ fontSize:12, color:'#888' }}>{fmt(precioNR)} × {nn} noche{nn!==1?'s':''}</div>}
                       </div>
                       <button onClick={() => !noDisp && nn>0 && reservar(hab,'nr')}
                         disabled={noDisp || nn<=0}
