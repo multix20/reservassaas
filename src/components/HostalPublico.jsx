@@ -55,7 +55,7 @@ export default function HostalPublico() {
   const [buscado, setBuscado]             = useState(false);
   const [politicas, setPoliticas]         = useState(false);
   const [verDetalles, setVerDetalles]     = useState(null); // id de hab expandida
-  const [fechasElegidas, setFechasElegidas] = useState(false);
+  const [fechasElegidas, setFechasElegidas] = useState(!!navState?.entrada);
   const [idioma, setIdioma]               = useState('es');
   const [verIdioma, setVerIdioma]         = useState(false);
   const [busqIdioma, setBusqIdioma]       = useState('');
