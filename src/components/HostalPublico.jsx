@@ -160,12 +160,20 @@ export default function HostalPublico() {
             <div style={{ width:40, height:40, borderRadius:'50%', background:'#FF6A2F', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
               <svg width="16" height="16" viewBox="0 0 14 14" fill="none"><rect x="1" y="2" width="12" height="11" rx="2" stroke="white" strokeWidth="1.3"/><path d="M4 1v2M10 1v2M1 6h12" stroke="white" strokeWidth="1.3" strokeLinecap="round"/></svg>
             </div>
-            <div style={{ flex:1, minWidth:0, padding:'0 14px', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <div style={{ flex:1, minWidth:0, padding:'0 14px', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
               <div style={{ fontSize:14, fontWeight:500, color: fechasElegidas?'#111':'#aaa', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', textAlign:'center' }}>
                 {fechasElegidas
                   ? `${new Date(entrada+'T12:00').toLocaleDateString('es-CL',{day:'numeric',month:'short'})} → ${new Date(salida+'T12:00').toLocaleDateString('es-CL',{day:'numeric',month:'short'})}`
                   : 'Check-in  →  Check-out'}
               </div>
+              {fechasElegidas && nn > 0 && (
+                <div style={{ display:'flex', alignItems:'center', gap:4, flexShrink:0 }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                    <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" fill="#555" stroke="#555" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <span style={{ fontSize:13, fontWeight:600, color:'#555' }}>{nn}</span>
+                </div>
+              )}
             </div>
           </div>
 
