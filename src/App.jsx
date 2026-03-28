@@ -10,12 +10,15 @@ import AdminDashboard from './components/AdminDashboard';
 const App = () => (
   <BrowserRouter>
     <Routes>
-      <Route path="/"                                   element={<Home />} />
-      <Route path="/admin/login"                        element={<LoginAdmin />} />
-      <Route path="/:tenant_id"                         element={<HostalPublico />} />
-      <Route path="/:tenant_id/reservar/:habitacion_id" element={<FormularioReserva />} />
-      <Route path="/:tenant_id/confirmacion"            element={<Confirmacion />} />
-      <Route path="/admin/:slug"                          element={<AdminDashboard />} />
+      {/* Rutas estáticas primero — evitan que /:slug las capture */}
+      <Route path="/"      element={<Home />} />
+      <Route path="/login" element={<LoginAdmin />} />
+
+      {/* Rutas dinámicas por slug */}
+      <Route path="/:slug"                         element={<HostalPublico />} />
+      <Route path="/:slug/reservar/:habitacion_id" element={<FormularioReserva />} />
+      <Route path="/:slug/confirmacion"            element={<Confirmacion />} />
+      <Route path="/:slug/admin"                   element={<AdminDashboard />} />
     </Routes>
   </BrowserRouter>
 );

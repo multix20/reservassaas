@@ -36,11 +36,11 @@ export default function AdminDashboard() {
   useEffect(() => {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { navigate('/admin/login'); return; }
+      if (!session) { navigate('/login'); return; }
 
       const { data: h } = await supabase
         .from('hostales').select('*').eq('tenant_id', tenant_id).single();
-      if (!h) { navigate('/admin/login'); return; }
+      if (!h) { navigate('/login'); return; }
       setHostal(h);
 
       await Promise.all([
@@ -156,7 +156,7 @@ export default function AdminDashboard() {
 
   const logout = async () => {
     await supabase.auth.signOut();
-    navigate('/admin/login');
+    navigate('/login');
   };
 
   if (loading) return (

@@ -33,7 +33,7 @@ export default function LoginAdmin() {
           .select('tenant_id')
           .eq('admin_email', data.session.user.email)
           .single();
-        if (hostal) { navigate(`/admin/${hostal.tenant_id}`); return; }
+        if (hostal) { navigate(`/${hostal.tenant_id}/admin`); return; }
       }
       setLoading(false);
     });
@@ -68,14 +68,14 @@ export default function LoginAdmin() {
       return;
     }
 
-    navigate(`/admin/${hostal.tenant_id}`);
+    navigate(`/${hostal.tenant_id}/admin`);
   };
 
   const enviarRecovery = async (e) => {
     e.preventDefault();
     setLoading(true);
     const { error: eR } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-      redirectTo: `${window.location.origin}/admin/login`,
+      redirectTo: `${window.location.origin}/login`,
     });
     setLoading(false);
     setRecoveryMsg(eR ? 'No se pudo enviar el correo.' : 'Revisa tu email para restablecer la contraseña.');

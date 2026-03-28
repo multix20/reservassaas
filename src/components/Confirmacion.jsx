@@ -27,12 +27,12 @@ const TERMINOS = [
 ];
 
 export default function Confirmacion() {
-  const { tenant_id } = useParams();
+  const { slug } = useParams();
   const { state }     = useLocation();
   const navigate      = useNavigate();
   const [verTerminos, setVerTerminos] = useState(false);
 
-  if (!state?.reserva) { navigate(`/${tenant_id}`); return null; }
+  if (!state?.reserva) { navigate(`/${slug}`); return null; }
 
   const { reserva, hab, hostal, entrada, salida, anticipo, resto } = state;
   const nn = noches(entrada, salida);
@@ -176,7 +176,7 @@ export default function Confirmacion() {
               Contactar al hostal por WhatsApp
             </a>
           )}
-          <button onClick={() => navigate(`/${tenant_id}`)}
+          <button onClick={() => navigate(`/${slug}`)}
             style={{ width: '100%', background: 'transparent', border: '0.5px solid #ddd', borderRadius: 14, padding: 13, fontSize: 13, color: '#666', cursor: 'pointer', fontFamily: "'DM Sans',sans-serif" }}>
             Volver al hostal
           </button>

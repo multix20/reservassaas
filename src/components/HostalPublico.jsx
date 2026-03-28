@@ -34,7 +34,7 @@ const DESCUENTO_NR = 0.15;
 
 
 export default function HostalPublico() {
-  const { tenant_id } = useParams();
+  const { slug } = useParams();
   const navigate      = useNavigate();
   const { state: navState } = useLocation();
   const roomsRef      = useRef(null);
@@ -68,7 +68,7 @@ export default function HostalPublico() {
       setCargando(true);
       const { data: h, error: eH } = await supabase
         .from('hostales').select('*')
-        .eq('tenant_id', tenant_id).eq('activo', true).single();
+        .eq('tenant_id', slug).eq('activo', true).single();
       if (eH || !h) { setError('Hostal no encontrado'); setCargando(false); return; }
       setHostal(h);
       const { data: habs } = await supabase
@@ -79,7 +79,7 @@ export default function HostalPublico() {
       setCargando(false);
     }
     cargar();
-  }, [tenant_id]);
+  }, [slug]);
 
   useEffect(() => {
     if (!habitaciones.length || !entrada || !salida || entrada >= salida) return;
@@ -106,7 +106,7 @@ export default function HostalPublico() {
     const precioFinal = tarifa === 'nr'
       ? Math.round(hab.precio_noche * (1 - DESCUENTO_NR))
       : hab.precio_noche;
-    navigate(`/${tenant_id}/reservar/${hab.id}`, {
+    navigate(`/${slug}/reservar/${hab.id}`, {
       state: { hab: { ...hab, precio_noche: precioFinal, tarifa }, hostal, entrada, salida, huespedes: huespedsPorHab[hab.id] || 1, habitaciones }
     });
   };

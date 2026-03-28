@@ -94,11 +94,11 @@ function Campo({ icon, label, children }) {
 }
 
 export default function FormularioReserva() {
-  const { tenant_id } = useParams();
+  const { slug } = useParams();
   const { state }     = useLocation();
   const navigate      = useNavigate();
 
-  if (!state?.hab) { navigate(`/${tenant_id}`); return null; }
+  if (!state?.hab) { navigate(`/${slug}`); return null; }
 
   const { hab: habInicial, hostal, entrada: entradaInicial, salida: salidaInicial, huespedes: huespedesInicial = 1, habitaciones = [] } = state;
 
@@ -170,7 +170,7 @@ export default function FormularioReserva() {
         estado: 'pendiente',
       });
       if (eR) throw new Error(eR.message);
-      navigate(`/${tenant_id}/confirmacion`, {
+      navigate(`/${slug}/confirmacion`, {
         state: { reserva: { huesped_nombre: form.nombre.trim(), huesped_email: form.email.trim().toLowerCase() }, hab, hostal, entrada, salida, anticipo, resto }
       });
     } catch {
@@ -192,7 +192,7 @@ export default function FormularioReserva() {
 
           {/* Izquierda: volver + nombre */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-            <button onClick={() => paso === 1 ? navigate(`/${tenant_id}`, { state: { entrada, salida, huespedes, hab_id: hab.id } }) : setPaso(1)}
+            <button onClick={() => paso === 1 ? navigate(`/${slug}`, { state: { entrada, salida, huespedes, hab_id: hab.id } }) : setPaso(1)}
               style={{ width: 32, height: 32, borderRadius: '50%', background: '#f5f5f5', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L6 8l4 5" stroke="#333" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
