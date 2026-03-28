@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import supabase from '../lib/supabase';
 
 const IconOjo = ({ abierto }) => abierto ? (
@@ -15,7 +15,8 @@ const IconOjo = ({ abierto }) => abierto ? (
 );
 
 export default function LoginAdmin() {
-  const navigate = useNavigate();
+  const { slug }   = useParams();
+  const navigate   = useNavigate();
   const [email, setEmail]             = useState('');
   const [password, setPassword]       = useState('');
   const [error, setError]             = useState(null);
@@ -23,8 +24,9 @@ export default function LoginAdmin() {
   const [showPass, setShowPass]       = useState(false);
   const [recovery, setRecovery]       = useState(false);
   const [recoveryMsg, setRecoveryMsg] = useState(null);
+  const [nombreHostal, setNombreHostal] = useState('');
 
-  // Redirigir si ya hay sesión activa
+  // Redirigir si ya hay sesión activa + cargar nombre del hostal
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       if (data.session?.user?.email) {
@@ -35,9 +37,16 @@ export default function LoginAdmin() {
           .single();
         if (hostal) { navigate(`/${hostal.tenant_id}/admin`); return; }
       }
+      // Cargar nombre del hostal desde el slug
+      const { data: h } = await supabase
+        .from('hostales')
+        .select('nombre, ciudad')
+        .eq('tenant_id', slug)
+        .single();
+      if (h) setNombreHostal(`${h.nombre} — ${h.ciudad}`);
       setLoading(false);
     });
-  }, []);
+  }, [slug]);
 
   const login = async (e) => {
     e.preventDefault();
@@ -100,8 +109,8 @@ export default function LoginAdmin() {
               <path d="M9 22V12h6v10" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#111', letterSpacing: '-.02em', margin: 0 }}>Panel del hostal</h1>
-          <p style={{ fontSize: 13, color: '#aaa', marginTop: 4 }}>ReservasSaaS</p>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#111', letterSpacing: '-.02em', margin: 0 }}>{nombreHostal || 'Panel del hostal'}</h1>
+          <p style={{ fontSize: 13, color: '#aaa', marginTop: 4 }}>Administración · ReservasSaaS</p>
         </div>
 
         {/* Card */}

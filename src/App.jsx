@@ -12,7 +12,7 @@ const App = () => (
     <Routes>
       {/* Rutas estáticas primero — evitan que /:slug las capture */}
       <Route path="/"      element={<Home />} />
-      <Route path="/login" element={<LoginAdmin />} />
+      <Route path="/:slug/admin/login" element={<LoginAdmin />} />
 
       {/* Rutas dinámicas por slug */}
       <Route path="/:slug"                         element={<HostalPublico />} />
