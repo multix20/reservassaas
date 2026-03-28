@@ -15,7 +15,7 @@ const App = () => (
       <Route path="/:tenant_id"                         element={<HostalPublico />} />
       <Route path="/:tenant_id/reservar/:habitacion_id" element={<FormularioReserva />} />
       <Route path="/:tenant_id/confirmacion"            element={<Confirmacion />} />
-      <Route path="/:tenant_id/admin"                   element={<AdminDashboard />} />
+      <Route path="/admin/:slug"                          element={<AdminDashboard />} />
     </Routes>
   </BrowserRouter>
 );

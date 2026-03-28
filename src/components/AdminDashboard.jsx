@@ -88,7 +88,7 @@ function TarjetaReserva({ r, onCambioEstado }) {
 
 // ── Componente principal ──────────────────────────────────────
 export default function AdminDashboard() {
-  const { tenant_id } = useParams();
+  const { slug: tenant_id } = useParams();
   const navigate      = useNavigate();
 
   const [hostal, setHostal]           = useState(null);
