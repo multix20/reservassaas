@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import supabase from '../lib/supabase';
 import CalendarioReserva from './CalendarioReserva';
 
 
 const noches = (e, s) => Math.round((new Date(s) - new Date(e)) / 86400000);
+// Formatea fecha local a YYYY-MM-DD (evita el desfase de toISOString en zonas UTC+13)
+const aISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const ANTICIPO_PCT = 0.3;
 
 const MEDIOS_PAGO = [
@@ -142,6 +144,19 @@ export default function FormularioReserva() {
   const [form, setForm] = useState({ nombre: '', email: '', telefono: '', notas: '' });
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
+  // Re-verifica disponibilidad cada vez que cambian habitación o fechas
+  const [disponible, setDisponible] = useState(true);
+  useEffect(() => {
+    if (!hab?.id || !entrada || !salida || entrada >= salida) return;
+    let activo = true;
+    supabase.rpc('verificar_disponibilidad', {
+      p_habitacion_id: hab.id, p_entrada: entrada, p_salida: salida,
+    }).then(({ data, error: eD }) => {
+      if (activo) setDisponible(eD ? true : data !== false);
+    });
+    return () => { activo = false; };
+  }, [hab?.id, entrada, salida]);
+
   const validar = () => {
     if (!form.nombre.trim())       return 'El nombre es obligatorio';
     if (!form.email.includes('@')) return 'El email no es válido';
@@ -158,6 +173,12 @@ export default function FormularioReserva() {
   const confirmarYPagar = async () => {
     setEnviando(true); setError(null);
     try {
+      // Chequeo final de disponibilidad justo antes de insertar (evita doble reserva)
+      const { data: disp } = await supabase.rpc('verificar_disponibilidad', {
+        p_habitacion_id: hab.id, p_entrada: entrada, p_salida: salida,
+      });
+      if (disp === false) throw new Error('sin_disponibilidad');
+
       const { error: eR } = await supabase.from('reservas_hostal').insert({
         hostal_id: hostal.id, habitacion_id: hab.id,
         huesped_nombre: form.nombre.trim(),
@@ -173,8 +194,10 @@ export default function FormularioReserva() {
       navigate(`/${slug}/confirmacion`, {
         state: { reserva: { huesped_nombre: form.nombre.trim(), huesped_email: form.email.trim().toLowerCase() }, hab, hostal, entrada, salida, anticipo, resto }
       });
-    } catch {
-      setError('Hubo un problema al procesar tu reserva. Intenta de nuevo.');
+    } catch (err) {
+      setError(err?.message === 'sin_disponibilidad'
+        ? 'La habitación ya no está disponible para esas fechas. Ajusta las noches o elige otra habitación.'
+        : 'Hubo un problema al procesar tu reserva. Intenta de nuevo.');
       setEnviando(false);
     }
   };
@@ -272,7 +295,7 @@ export default function FormularioReserva() {
                   onClick={() => {
                     const d = new Date(salida + 'T12:00');
                     d.setDate(d.getDate() - 1);
-                    const nueva = d.toISOString().slice(0, 10);
+                    const nueva = aISO(d);
                     if (nueva > entrada) setSalida(nueva);
                   }}
                   style={{ width: 24, height: 24, borderRadius: '50%', border: '1.5px solid #ddd', background: '#fff', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', lineHeight: 1, flexShrink: 0 }}>−</button>
@@ -289,7 +312,7 @@ export default function FormularioReserva() {
                   onClick={() => {
                     const d = new Date(salida + 'T12:00');
                     d.setDate(d.getDate() + 1);
-                    setSalida(d.toISOString().slice(0, 10));
+                    setSalida(aISO(d));
                   }}
                   style={{ width: 24, height: 24, borderRadius: '50%', border: '1.5px solid #FF6A2F', background: '#FF6A2F', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', lineHeight: 1, flexShrink: 0 }}>+</button>
               </div>
@@ -548,12 +571,13 @@ export default function FormularioReserva() {
           <div style={{ fontSize: 11, color: '#aaa' }}>{fmtFecha(entrada)} · {fmtFecha(salida)}</div>
           <div style={{ fontSize: 22, fontWeight: 800, color: '#111', letterSpacing: '-.02em' }}>{fmtM(paso === 2 ? anticipo : total)}</div>
           {paso === 2 && <div style={{ fontSize: 10, color: '#FF6A2F', fontWeight: 600 }}>Anticipo 30%</div>}
+          {!disponible && <div style={{ fontSize: 10, color: '#E24B4A', fontWeight: 600 }}>Sin disponibilidad para estas fechas</div>}
         </div>
         <button
           onClick={paso === 1 ? avanzar : confirmarYPagar}
-          disabled={enviando}
-          style={{ background: enviando ? '#ddd' : '#FF6A2F', color: '#fff', border: 'none', borderRadius: 50, padding: '13px 28px', fontSize: 14, fontWeight: 700, cursor: enviando ? 'default' : 'pointer', fontFamily: "'DM Sans',sans-serif", flexShrink: 0, boxShadow: enviando ? 'none' : '0 4px 16px rgba(255,106,47,.4)', letterSpacing: '-.01em' }}>
-          {enviando ? 'Procesando...' : paso === 1 ? 'Continuar →' : `Pagar con ${medio?.nombre}`}
+          disabled={enviando || !disponible}
+          style={{ background: (enviando || !disponible) ? '#ddd' : '#FF6A2F', color: '#fff', border: 'none', borderRadius: 50, padding: '13px 28px', fontSize: 14, fontWeight: 700, cursor: (enviando || !disponible) ? 'default' : 'pointer', fontFamily: "'DM Sans',sans-serif", flexShrink: 0, boxShadow: (enviando || !disponible) ? 'none' : '0 4px 16px rgba(255,106,47,.4)', letterSpacing: '-.01em' }}>
+          {enviando ? 'Procesando...' : !disponible ? 'No disponible' : paso === 1 ? 'Continuar →' : `Pagar con ${medio?.nombre}`}
         </button>
       </div>
 
@@ -609,35 +633,4 @@ export default function FormularioReserva() {
           )}
 
           {/* Thumbnails */}
-          <div style={{ display: 'flex', gap: 8, marginTop: 16 }} onClick={e => e.stopPropagation()}>
-            {carrusel.fotos.map((f, i) => (
-              <div key={i} onClick={() => setCarrusel(c => ({ ...c, idx: i }))}
-                style={{ width: 56, height: 42, borderRadius: 8, overflow: 'hidden', border: i === carrusel.idx ? '2px solid #FF6A2F' : '2px solid transparent', cursor: 'pointer', opacity: i === carrusel.idx ? 1 : 0.55, transition: 'all .2s' }}>
-                <img src={f} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Calendario full-screen ── */}
-      {verCalendario && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: '#fff', overflowY: 'auto', display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto', left: '50%', transform: 'translateX(-50%)', width: '100%' }}>
-          <CalendarioReserva
-            precioNoche={Math.round(hab.precio_noche * monedaActual.tasa)}
-            inicioInicial={entrada}
-            finInicial={salida}
-            onClose={(ini, fin) => {
-              if (ini && fin) {
-                setEntrada(ini.toISOString().split('T')[0]);
-                setSalida(fin.toISOString().split('T')[0]);
-              }
-              setVerCalendario(false);
-            }}
-          />
-        </div>
-      )}
-
-    </div>
-  );
-}
+          <div style={{ d
