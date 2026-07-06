@@ -192,4 +192,12 @@ serve(async (req) => {
       // Flow espera siempre un 200
       return new Response("ok", { status: 200 });
 
-    } catch (e) 
+    } catch (e) {
+      console.error("Error /webhook:", e);
+      // Igual responder 200 para que Flow no reintente indefinidamente
+      return new Response("ok", { status: 200 });
+    }
+  }
+
+  return new Response(JSON.stringify({ error: "Ruta no encontrada" }), { status: 404, headers });
+});

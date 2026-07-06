@@ -633,4 +633,35 @@ export default function FormularioReserva() {
           )}
 
           {/* Thumbnails */}
-          <div style={{ d
+          <div style={{ display: 'flex', gap: 8, marginTop: 16 }} onClick={e => e.stopPropagation()}>
+            {carrusel.fotos.map((f, i) => (
+              <div key={i} onClick={() => setCarrusel(c => ({ ...c, idx: i }))}
+                style={{ width: 56, height: 42, borderRadius: 8, overflow: 'hidden', border: i === carrusel.idx ? '2px solid #FF6A2F' : '2px solid transparent', cursor: 'pointer', opacity: i === carrusel.idx ? 1 : 0.55, transition: 'all .2s' }}>
+                <img src={f} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Calendario full-screen ── */}
+      {verCalendario && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: '#fff', overflowY: 'auto', display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto', left: '50%', transform: 'translateX(-50%)', width: '100%' }}>
+          <CalendarioReserva
+            precioNoche={Math.round(hab.precio_noche * monedaActual.tasa)}
+            inicioInicial={entrada}
+            finInicial={salida}
+            onClose={(ini, fin) => {
+              if (ini && fin) {
+                setEntrada(aISO(ini));
+                setSalida(aISO(fin));
+              }
+              setVerCalendario(false);
+            }}
+          />
+        </div>
+      )}
+
+    </div>
+  );
+}
