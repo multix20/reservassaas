@@ -7,11 +7,16 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { crypto } from "https://deno.land/std@0.177.0/crypto/mod.ts";
 
-const FLOW_API_URL   = "https://www.flow.cl/api";
-const FLOW_API_KEY   = "370F6200-CF3C-40BF-9E4A-1LAE4A764254";
-const FLOW_SECRET    = "8466e4f8b116c852779a91266f8308a19ab52ac0";
-const SITE_URL       = "https://araucaniaviajes.cl";
-const WA_NUMBER      = "56951569704";
+// Credenciales SIEMPRE desde secrets (supabase secrets set) — nunca hardcodeadas
+const FLOW_API_URL   = Deno.env.get("FLOW_API_URL") ?? "https://www.flow.cl/api";
+const FLOW_API_KEY   = Deno.env.get("FLOW_API_KEY")!;
+const FLOW_SECRET    = Deno.env.get("FLOW_SECRET")!;
+const SITE_URL       = Deno.env.get("SITE_URL") ?? "https://araucaniaviajes.cl";
+const WA_NUMBER      = Deno.env.get("WA_NUMBER") ?? "";
+
+if (!FLOW_API_KEY || !FLOW_SECRET) {
+  console.error("FALTAN SECRETS: configura FLOW_API_KEY y FLOW_SECRET con `supabase secrets set`");
+}
 
 const supabase = createClient(
   Deno.env.get("SB_URL")!,
@@ -187,12 +192,4 @@ serve(async (req) => {
       // Flow espera siempre un 200
       return new Response("ok", { status: 200 });
 
-    } catch (e) {
-      console.error("Error /webhook:", e);
-      // Igual responder 200 para que Flow no reintente indefinidamente
-      return new Response("ok", { status: 200 });
-    }
-  }
-
-  return new Response(JSON.stringify({ error: "Ruta no encontrada" }), { status: 404, headers });
-});
+    } catch (e) 
