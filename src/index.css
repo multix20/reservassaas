@@ -17,6 +17,14 @@ input::placeholder, textarea::placeholder {
   color: #9ca3af;
 }
 
+/* Opciones de los <select>: el menú desplegable nativo es blanco,
+   así que las opciones siempre van oscuras aunque el select esté
+   estilizado para tema oscuro (panel admin) */
+select option {
+  color: #111;
+  background: #fff;
+}
+
 * {
   margin: 0;
   padding: 0;
