@@ -172,7 +172,7 @@ export default function Home() {
 const NAV_ITEMS = ['Home', 'Habitaciones', 'Promociones', 'Contacto'];
 
 function HeroSection({ hostal, onReservar }) {
-  const foto = '/castillo.jpg';
+  const foto = '/montana.jpg';
   const [menuAbierto, setMenuAbierto] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
 
@@ -257,10 +257,21 @@ function HeroSection({ hostal, onReservar }) {
 
       </div>
 
-      {/* Contenido central */}
-      <div style={{ position: 'relative', zIndex: 10, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexDirection: 'column', padding: '0 10px 170px' }}>
+      {/* Contenido central — landing del hostal */}
+      <div style={{ position: 'relative', zIndex: 10, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexDirection: 'column', padding: '0 24px 120px', textAlign: 'center' }}>
+        {hostal.ciudad && (
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,.85)', letterSpacing: '.18em', textTransform: 'uppercase', marginBottom: 14 }}>
+            {hostal.ciudad} · Patagonia chilena
+          </span>
+        )}
+        <h1 style={{ fontSize: 'clamp(38px, 7vw, 64px)', fontWeight: 900, color: '#fff', letterSpacing: '-.03em', lineHeight: 1.05, marginBottom: 14, textShadow: '0 2px 24px rgba(0,0,0,.35)' }}>
+          {hostal.nombre}
+        </h1>
+        <p style={{ fontSize: 16, color: 'rgba(255,255,255,.85)', maxWidth: 420, lineHeight: 1.6, marginBottom: 28 }}>
+          {hostal.descripcion || 'Tu casa base para explorar la Patagonia. Camas cómodas, ambiente de viajeros y reserva online al instante.'}
+        </p>
         <button onClick={onReservar}
-          style={{ background: 'linear-gradient(135deg, #FF6A2F 0%, #e85520 100%)', color: '#fff', border: 'none', borderRadius: 50, padding: '30px 0', fontSize: 20, fontWeight: 700, cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", boxShadow: '0 4px 32px rgba(255,106,47,.6)', letterSpacing: '-.01em', width: '100%' }}>
+          style={{ background: 'linear-gradient(135deg, #FF6A2F 0%, #e85520 100%)', color: '#fff', border: 'none', borderRadius: 50, padding: '17px 44px', fontSize: 17, fontWeight: 700, cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", boxShadow: '0 4px 32px rgba(255,106,47,.55)', letterSpacing: '-.01em' }}>
           Reservar ahora →
         </button>
       </div>

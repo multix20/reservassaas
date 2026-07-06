@@ -6,6 +6,7 @@ import FormularioReserva from './components/FormularioReserva';
 import Confirmacion from './components/Confirmacion';
 import LoginAdmin from './components/LoginAdmin';
 import AdminDashboard from './components/AdminDashboard';
+import VitrinaHostelia from './components/VitrinaHostelia';
 
 /*
  * Modo de presentación según ruta:
@@ -15,8 +16,9 @@ import AdminDashboard from './components/AdminDashboard';
 const ModoPresentacion = () => {
   const { pathname } = useLocation();
   useEffect(() => {
-    const esLanding = pathname === '/';
-    document.body.classList.toggle('modo-app', !esLanding);
+    // Páginas web a pantalla completa: vitrina Hostelia y landing del hostal
+    const esWeb = pathname === '/' || pathname === '/hostelia';
+    document.body.classList.toggle('modo-app', !esWeb);
   }, [pathname]);
   return null;
 };
@@ -26,7 +28,8 @@ const App = () => (
     <ModoPresentacion />
     <Routes>
       {/* Rutas estáticas primero — evitan que /:slug las capture */}
-      <Route path="/"      element={<Home />} />
+      <Route path="/"         element={<Home />} />
+      <Route path="/hostelia" element={<VitrinaHostelia />} />
       <Route path="/:slug/admin/login" element={<LoginAdmin />} />
 
       {/* Rutas dinámicas por slug */}
