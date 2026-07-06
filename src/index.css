@@ -111,14 +111,16 @@ img {
 }
 
 /* ── Presentación tipo app móvil en escritorio ──
-   En pantallas grandes la app se ve como un teléfono centrado
-   sobre fondo oscuro (estilo Cochrane Turismo) */
+   Solo para las rutas de hostal (/:slug/...): la app se ve como un
+   teléfono centrado sobre fondo oscuro. La landing (/) queda a
+   pantalla completa como web normal. La clase .modo-app la pone
+   App.jsx según la ruta. */
 @media (min-width: 768px) {
-  body {
+  body.modo-app {
     background: #10151c;
     min-height: 100vh;
   }
-  #root {
+  body.modo-app #root {
     max-width: 480px;
     margin: 0 auto;
     min-height: 100vh;
