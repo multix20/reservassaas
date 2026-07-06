@@ -44,38 +44,46 @@ export default function Home() {
 
           {/* ── HABITACIONES ── */}
           <section id="habitaciones" style={{ padding: '72px 28px 56px', background: '#fff' }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: '#FF6A2F', letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 10 }}>Alojamiento</p>
-            <h2 style={{ fontSize: 30, fontWeight: 900, color: '#111', letterSpacing: '-.03em', lineHeight: 1.1, marginBottom: 14 }}>Nuestras Habitaciones</h2>
-            <p style={{ fontSize: 14, color: '#666', lineHeight: 1.7, marginBottom: 32, maxWidth: 480 }}>
-              {hostal.descripcion || 'Encuentra el espacio ideal para tu estadía. Desde habitaciones compartidas hasta privadas, diseñadas para que te sientas como en casa.'}
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 32 }}>
-              {[
-                { img: '/hcompartida.jpg', label: 'Compartida' },
-                { img: '/hdoble.jpg',      label: 'Privada' },
-                { img: '/Habitacion1.jpg', label: 'Premium' },
-                { img: '/iglu.jpg',        label: 'Especial' },
-              ].map(({ img, label }) => (
-                <div key={label} style={{ borderRadius: 16, overflow: 'hidden', position: 'relative', aspectRatio: '4/3' }}>
-                  <img src={img} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,.55) 0%, transparent 60%)' }} />
-                  <span style={{ position: 'absolute', bottom: 10, left: 12, fontSize: 12, fontWeight: 700, color: '#fff' }}>{label}</span>
-                </div>
-              ))}
+            <div className="l-wrap">
+              <div className="l-head">
+                <p style={{ fontSize: 11, fontWeight: 700, color: '#FF6A2F', letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 10 }}>Alojamiento</p>
+                <h2 style={{ fontSize: 30, fontWeight: 900, color: '#111', letterSpacing: '-.03em', lineHeight: 1.1, marginBottom: 14 }}>Nuestras Habitaciones</h2>
+                <p style={{ fontSize: 14, color: '#666', lineHeight: 1.7, marginBottom: 32, maxWidth: 480 }}>
+                  {hostal.descripcion || 'Encuentra el espacio ideal para tu estadía. Desde habitaciones compartidas hasta privadas, diseñadas para que te sientas como en casa.'}
+                </p>
+              </div>
+              <div className="l-grid-habs">
+                {[
+                  { img: '/hcompartida.jpg', label: 'Compartida' },
+                  { img: '/hdoble.jpg',      label: 'Privada' },
+                  { img: '/Habitacion1.jpg', label: 'Premium' },
+                  { img: '/iglu.jpg',        label: 'Especial' },
+                ].map(({ img, label }) => (
+                  <div key={label} style={{ borderRadius: 16, overflow: 'hidden', position: 'relative', aspectRatio: '4/3' }}>
+                    <img src={img} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,.55) 0%, transparent 60%)' }} />
+                    <span style={{ position: 'absolute', bottom: 10, left: 12, fontSize: 12, fontWeight: 700, color: '#fff' }}>{label}</span>
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => navigate(`/${hostal.tenant_id}`)} className="l-btn-cta"
+                style={{ background: '#FF6A2F', color: '#fff', border: 'none', borderRadius: 50, padding: '15px', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", boxShadow: '0 4px 20px rgba(255,106,47,.3)' }}>
+                Ver disponibilidad →
+              </button>
             </div>
-            <button onClick={() => navigate(`/${hostal.tenant_id}`)}
-              style={{ width: '100%', background: '#FF6A2F', color: '#fff', border: 'none', borderRadius: 50, padding: '15px', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", boxShadow: '0 4px 20px rgba(255,106,47,.3)' }}>
-              Ver disponibilidad →
-            </button>
           </section>
 
           {/* ── PROMOCIONES ── */}
           <section id="promociones" style={{ padding: '56px 28px', background: '#fff9f5' }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: '#FF6A2F', letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 10 }}>Ofertas</p>
-            <h2 style={{ fontSize: 30, fontWeight: 900, color: '#111', letterSpacing: '-.03em', lineHeight: 1.1, marginBottom: 28 }}>Promociones</h2>
+            <div className="l-wrap">
+            <div className="l-head">
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#FF6A2F', letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 10 }}>Ofertas</p>
+              <h2 style={{ fontSize: 30, fontWeight: 900, color: '#111', letterSpacing: '-.03em', lineHeight: 1.1, marginBottom: 28 }}>Promociones</h2>
+            </div>
 
+            <div className="l-grid-promos">
             {/* Promo 1 */}
-            <div style={{ background: '#fff', borderRadius: 20, padding: '24px', marginBottom: 16, boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
+            <div style={{ background: '#fff', borderRadius: 20, padding: '24px', boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <span style={{ fontSize: 12, fontWeight: 700, color: '#FF6A2F', letterSpacing: '.08em', textTransform: 'uppercase' }}>Estadía larga</span>
                 <span style={{ background: '#FF6A2F', color: '#fff', borderRadius: 50, padding: '4px 12px', fontSize: 12, fontWeight: 800 }}>-15%</span>
@@ -105,14 +113,19 @@ export default function Home() {
                 Aprovechar oferta
               </button>
             </div>
+            </div>
+            </div>
           </section>
 
           {/* ── CONTACTO ── */}
           <section id="contacto" style={{ padding: '56px 28px 80px', background: '#fff' }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: '#FF6A2F', letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 10 }}>Encuéntranos</p>
-            <h2 style={{ fontSize: 30, fontWeight: 900, color: '#111', letterSpacing: '-.03em', lineHeight: 1.1, marginBottom: 28 }}>Contacto</h2>
+            <div className="l-wrap">
+            <div className="l-head">
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#FF6A2F', letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 10 }}>Encuéntranos</p>
+              <h2 style={{ fontSize: 30, fontWeight: 900, color: '#111', letterSpacing: '-.03em', lineHeight: 1.1, marginBottom: 28 }}>Contacto</h2>
+            </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div className="l-grid-contacto">
               {hostal.ciudad && (
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '20px', background: '#f8f8f8', borderRadius: 16 }}>
                   <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#FF6A2F', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -145,6 +158,7 @@ export default function Home() {
                   </div>
                 </div>
               )}
+            </div>
             </div>
           </section>
 

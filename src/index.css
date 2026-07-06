@@ -110,6 +110,25 @@ img {
   clear: both;
 }
 
+/* ── Landing del hostal: refinamiento para escritorio ──
+   En móvil todo queda igual; en pantallas grandes el contenido
+   se centra y las grillas se expanden. */
+.l-wrap { max-width: 1000px; margin: 0 auto; }
+.l-grid-habs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 32px; }
+.l-grid-promos { display: grid; grid-template-columns: 1fr; gap: 16px; }
+.l-grid-contacto { display: flex; flex-direction: column; gap: 16px; }
+.l-btn-cta { width: 100%; }
+
+@media (min-width: 768px) {
+  .l-head { text-align: center; }
+  .l-head p { margin-left: auto !important; margin-right: auto !important; }
+  .l-grid-habs { grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  .l-grid-promos { grid-template-columns: 1fr 1fr; gap: 20px; }
+  .l-grid-contacto { flex-direction: row; }
+  .l-grid-contacto > div { flex: 1; }
+  .l-btn-cta { width: auto; display: block; margin: 0 auto; padding-left: 52px !important; padding-right: 52px !important; }
+}
+
 /* ── Presentación tipo app móvil en escritorio ──
    Solo para las rutas de hostal (/:slug/...): la app se ve como un
    teléfono centrado sobre fondo oscuro. La landing (/) queda a
