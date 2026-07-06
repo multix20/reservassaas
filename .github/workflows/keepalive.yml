@@ -1,0 +1,24 @@
+name: Supabase Keep-Alive
+
+# Consulta la DB cada 3 dias para que el plan Free no pause el proyecto
+# (Supabase pausa tras ~7 dias sin actividad)
+on:
+  schedule:
+    - cron: '0 12 */3 * *'   # cada 3 dias a las 12:00 UTC (~08:00 Chile)
+  workflow_dispatch:          # permite ejecutarlo a mano desde la pestana Actions
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping a Supabase
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/hostales?select=id&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}")
+          echo "HTTP $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::Supabase respondio $STATUS — revisar si el proyecto esta pausado"
+            exit 1
+          fi
