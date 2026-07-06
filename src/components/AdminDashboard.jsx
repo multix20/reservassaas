@@ -146,6 +146,19 @@ export default function AdminDashboard() {
     setReservas(prev => prev.map(r => r.id === id ? { ...r, estado: nuevoEstado } : r));
   };
 
+  // ─── Eliminar reserva (con confirmación) ─────────────────────────────────────
+  const eliminarReserva = async (r) => {
+    const ok = window.confirm(
+      `¿Eliminar la reserva de ${r.huesped_nombre} (${fmtFecha(r.fecha_entrada)} → ${fmtFecha(r.fecha_salida)})?\n\nEsta acción es permanente.`
+    );
+    if (!ok) return;
+    const { error } = await supabase.from('reservas_hostal').delete().eq('id', r.id);
+    if (error) { alert('No se pudo eliminar: ' + error.message); return; }
+    // Refresca lista y métricas
+    setReservas(prev => prev.filter(x => x.id !== r.id));
+    if (hostal?.id) cargarReservas(hostal.id);
+  };
+
   // ─── Filtrar reservas según tab ──────────────────────────────────────────────
   const today = hoy();
   const reservasFiltradas = reservas.filter(r => {
@@ -255,6 +268,10 @@ export default function AdminDashboard() {
                       <select value={r.estado} onChange={e => cambiarEstado(r.id, e.target.value)} style={selectStyle}>
                         {ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}
                       </select>
+                      <button onClick={() => eliminarReserva(r)} title="Eliminar reserva"
+                        style={{ fontSize: 11, color: '#f87171', border: '1px solid rgba(248,113,113,0.35)', borderRadius: 6, padding: '4px 10px', background: 'transparent', cursor: 'pointer' }}>
+                        Eliminar
+                      </button>
                     </div>
                   </div>
                   {r.notas && <p style={{ fontSize: 11, color: '#6b7280', fontStyle: 'italic', margin: '8px 0 0' }}>"{r.notas}"</p>}
