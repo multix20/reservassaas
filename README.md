@@ -1,120 +1,158 @@
-# 🚐 Araucanía Viajes
+# 🏠 ReservasSaaS
 
-Plataforma de reservas de transfers y servicios de transporte 
-turístico en la Región de la Araucanía, Chile.
+Plataforma multi-tenant de reservas en línea para hostales y hospedajes.
 
-> Conecta conductores socios con pasajeros, con gestión en 
-tiempo real de viajes compartidos, vans privadas y transfers 
-de aeropuerto.
-
-🌐 **Producción:** [araucaniaviajes.cl](https://araucaniaviajes.cl)
+> Cada hostal tiene su propia página de reservas con su marca, su panel de
+> administración y sus pagos — sin comisión por reserva. La vitrina comercial
+> del producto se llama **Hostelia**.
 
 ---
 
 ## 🏗️ Arquitectura
+
 ```
-araucaniaviajes.cl
-├── Frontend        React 18 + Vite
+├── Frontend        React 18 + Vite 5
+├── Router          React Router 7
 ├── Base de datos   Supabase (PostgreSQL)
 ├── Auth            Supabase Auth (email/password)
-├── Pagos           Flow.cl (pasarela chilena)
-├── Tiempo real     Supabase Realtime (WebSockets)
-├── Deploy          Netlify
-└── Vuelos          AviationStack API (ZCO)
+├── Pagos           Flow.cl (Edge Function en Deno)
+└── Deploy          Netlify
 ```
+
+## 🗺️ Rutas
+
+| Ruta | Vista |
+|---|---|
+| `/` | Landing del hostal principal |
+| `/hostelia` | Vitrina comercial del SaaS |
+| `/:slug` | Página pública del hostal — búsqueda y habitaciones |
+| `/:slug/reservar/:habitacion_id` | Formulario de reserva (2 pasos) |
+| `/:slug/confirmacion` | Confirmación de la reserva |
+| `/:slug/admin/login` | Login del panel, con marca del hostal |
+| `/:slug/admin` | Panel de administración |
+
+El `:slug` corresponde a `hostales.tenant_id`. Las rutas estáticas se declaran
+antes que las dinámicas para que `/:slug` no las capture.
+
+## 🗄️ Base de datos
+
+```sql
+hostales        — id, tenant_id, nombre, ciudad, direccion, telefono,
+                  descripcion, admin_email, activo
+habitaciones    — id, hostal_id, nombre, descripcion, capacidad,
+                  precio_noche, activa
+reservas_hostal — id, hostal_id, habitacion_id, huesped_nombre, huesped_email,
+                  huesped_telefono, fecha_entrada, fecha_salida,
+                  precio_por_noche, num_huespedes, notas, estado,
+                  flow_token, flow_pago_id
+bloqueos        — id, hostal_id, habitacion_id, fecha_inicio, fecha_fin, motivo
+```
+
+**Estados de reserva:** `pendiente` · `pagado` · `cancelado` · `completado`
+
+**RPC:** `verificar_disponibilidad(p_habitacion_id, p_entrada, p_salida)` →
+`boolean`. Se consulta al listar habitaciones, al cambiar fechas en el
+formulario y otra vez justo antes de insertar, para evitar sobreventa.
 
 ## ✨ Funcionalidades
 
-### Panel de Administración
-- 📅 Dashboard calendario con vista mensual
-- 🚌 Viajes Compartidos
-- 🚐 Van Privada
-- 🔒 Bloqueo de fechas por tipo de servicio
-- ✈️ Integración vuelos ZCO
-- 💳 Registro de pagos
-- 📨 Notificaciones WhatsApp
+### Reserva pública
+- Búsqueda por rango de fechas con calendario a pantalla completa
+- Disponibilidad en vivo por habitación
+- Dos tarifas: Flexible y No reembolsable (−15%)
+- Selector de idioma y moneda
+- Anticipo del 30% al reservar, resto al check-in
 
-### Reservas públicas
-- Formulario online por ruta y fecha
-- Pago via Flow.cl
-- Confirmación por email
-- Panel "Mis Reservas"
-
----
-
-## 🛠️ Stack
-
-| Tecnología | Uso |
-|---|---|
-| React 18 | UI principal |
-| Vite | Build tool |
-| Supabase | DB + Auth + Realtime |
-| Flow.cl | Pagos en CLP |
-| Netlify | Hosting + CI/CD |
-
----
-
-## 🗄️ Base de datos
-```sql
-rutas        — id, nombre, origen, destino, activa
-viajes       — id, ruta_id, tipo, fecha, hora_salida, capacidad, precio_por_pax
-reservas     — id, viaje_id, nombre, email, telefono, estado
-pagos        — id, reserva_id, monto, metodo, estado
-bloqueos     — id, tipo, fecha, mes, anio, motivo, aplica_a
-notificaciones — id, reserva_id, canal, mensaje, estado
-```
+### Panel de administración
+- Métricas: ingresos del mes, por confirmar, check-ins de hoy
+- Gráfico de reservas de las últimas 6 semanas
+- Filtros: hoy / próximas / todas
+- Cambio de estado, contacto por WhatsApp y eliminación de reservas
+- Reserva manual y bloqueo de fechas por habitación
 
 ---
 
 ## 🚀 Instalación local
+
 ```bash
-git clone https://github.com/multix20/Transporte.git
-cd Transporte
+git clone https://github.com/multix20/reservassaas.git
+cd reservassaas
 npm install
-cp .env.example .env.local
-# Edita .env.local con tus credenciales
+cp .env.example .env
+# Edita .env con tus credenciales de Supabase
 npm run dev
 ```
 
 ### Variables de entorno
+
+Solo dos, ambas del panel de Supabase (Project Settings → API):
+
 ```env
 VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
 VITE_SUPABASE_ANON_KEY=tu_anon_key
-VITE_AVIATIONSTACK_KEY=tu_api_key  # opcional
 ```
+
+Si faltan, la app muestra una pantalla explicando qué configurar en vez de
+quedarse en blanco.
+
+### Scripts
+
+```bash
+npm run dev      # servidor de desarrollo
+npm run build    # build de producción a dist/
+npm run preview  # sirve el build local
+npm run lint     # eslint, sin warnings permitidos
+```
+
+---
+
+## 💳 Pagos (Flow.cl)
+
+La Edge Function `supabase/functions/flow-payment` expone dos rutas:
+
+- `POST /flow-payment/create` — crea la orden y devuelve la URL de pago.
+  Recalcula el monto desde la base; nunca confía en el que envía el cliente.
+- `POST /flow-payment/webhook` — Flow confirma el pago y la reserva pasa a
+  `pagado` (o a `cancelado` si se rechaza o anula).
+
+Sus secrets **no** llevan prefijo `VITE_` — eso los publicaría en el bundle:
+
+```bash
+supabase secrets set FLOW_API_KEY=... FLOW_SECRET=... \
+  FLOW_WEBHOOK_URL=https://<proyecto>.supabase.co/functions/v1/flow-payment/webhook \
+  SITE_URL=https://tu-dominio.cl \
+  SB_URL=... SB_SERVICE_ROLE_KEY=...
+```
+
+Antes de desplegarla, aplica la migración que agrega `flow_token` y
+`flow_pago_id`:
+
+```bash
+supabase db push
+```
+
+> ⚠️ **Estado actual:** el formulario de reserva todavía no llama a esta
+> función — inserta la reserva en estado `pendiente` y va directo a la
+> confirmación. Los botones de MercadoPago y Stripe son decorativos: no hay
+> integración detrás de ellos.
 
 ---
 
 ## 🌐 Deploy en Netlify
 
-El archivo `netlify.toml` ya está configurado.
-```bash
-npm run build
-# Netlify despliega automáticamente desde main
-```
+`netlify.toml` y `public/_redirects` ya están configurados para SPA.
+Define `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` en
+Site configuration → Environment variables.
 
 ---
 
-## 📋 Roadmap
+## 📋 Pendientes
 
-### v1.1
-- [ ] Email automático al cancelar reserva
-- [ ] Panel del conductor socio
-- [ ] Vuelos ZCO en producción
-
-### v1.2
-- [ ] Minicampers / Van de viajes
-- [ ] Multiempresa
-- [ ] PWA para conductores
-
----
-
-## 📞 Contacto
-
-**Araucanía Viajes**
-🌐 [araucaniaviajes.cl](https://araucaniaviajes.cl)
-📱 WhatsApp: +56 9 5156 9704
-📍 Región de La Araucanía, Chile
-
----
-*Hecho con ❤️ en la Araucanía 🌋*
+- [ ] Conectar el formulario de reserva con `flow-payment/create`
+- [ ] Integrar MercadoPago y Stripe, o quitar los botones
+- [ ] Confirmar si `reservas_hostal.total` es columna calculada
+      (el panel la deriva del precio si llega nula)
+- [ ] Email automático al confirmar y al cancelar
+- [ ] Conversión de monedas con tasas reales — hoy están fijas en el código
+- [ ] Traducir la interfaz: el selector de idioma aún no cambia los textos
+- [ ] Fotos de habitaciones desde la base, no desde un array fijo

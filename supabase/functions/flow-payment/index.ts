@@ -1,27 +1,39 @@
 // supabase/functions/flow-payment/index.ts
 // Maneja dos rutas:
 //   POST /flow-payment/create  → crea orden en Flow y devuelve URL de pago
-//   POST /flow-payment/webhook → Flow confirma el pago, actualiza reserva
+//   POST /flow-payment/webhook → Flow confirma el pago, actualiza la reserva
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { crypto } from "https://deno.land/std@0.177.0/crypto/mod.ts";
 
 // Credenciales SIEMPRE desde secrets (supabase secrets set) — nunca hardcodeadas
-const FLOW_API_URL   = Deno.env.get("FLOW_API_URL") ?? "https://www.flow.cl/api";
-const FLOW_API_KEY   = Deno.env.get("FLOW_API_KEY")!;
-const FLOW_SECRET    = Deno.env.get("FLOW_SECRET")!;
-const SITE_URL       = Deno.env.get("SITE_URL") ?? "https://araucaniaviajes.cl";
-const WA_NUMBER      = Deno.env.get("WA_NUMBER") ?? "";
+const FLOW_API_URL = Deno.env.get("FLOW_API_URL") ?? "https://www.flow.cl/api";
+const FLOW_API_KEY = Deno.env.get("FLOW_API_KEY")!;
+const FLOW_SECRET  = Deno.env.get("FLOW_SECRET")!;
+const SITE_URL     = Deno.env.get("SITE_URL") ?? "";
+const WA_NUMBER    = Deno.env.get("WA_NUMBER") ?? "";
+
+// URL pública de esta misma función; Flow hace POST aquí al procesar el pago.
+// Ej: https://<proyecto>.supabase.co/functions/v1/flow-payment/webhook
+const FLOW_WEBHOOK_URL = Deno.env.get("FLOW_WEBHOOK_URL") ?? "";
 
 if (!FLOW_API_KEY || !FLOW_SECRET) {
   console.error("FALTAN SECRETS: configura FLOW_API_KEY y FLOW_SECRET con `supabase secrets set`");
+}
+if (!FLOW_WEBHOOK_URL) {
+  console.error("FALTA FLOW_WEBHOOK_URL: sin ella Flow no puede confirmar el pago");
 }
 
 const supabase = createClient(
   Deno.env.get("SB_URL")!,
   Deno.env.get("SB_SERVICE_ROLE_KEY")!
 );
+
+// Estados de reservas_hostal — deben coincidir con ESTADOS del panel admin
+const ESTADO_PAGADO    = "pagado";
+const ESTADO_PENDIENTE = "pendiente";
+const ESTADO_CANCELADO = "cancelado";
 
 // ── Firma Flow (HMAC-SHA256) ──────────────────────────────────────────────────
 async function firmarFlow(params: Record<string, string>): Promise<string> {
@@ -45,16 +57,16 @@ async function firmarFlow(params: Record<string, string>): Promise<string> {
 }
 
 // ── Crear orden Flow ──────────────────────────────────────────────────────────
-async function crearOrdenFlow(reservaId: string, monto: number, email: string, descripcion: string) {
+async function crearOrdenFlow(reservaId: string, monto: number, email: string, descripcion: string, slug: string) {
   const params: Record<string, string> = {
-    apiKey:      FLOW_API_KEY,
+    apiKey:        FLOW_API_KEY,
     commerceOrder: reservaId,
-    subject:     descripcion,
-    currency:    "CLP",
-    amount:      String(Math.round(monto)),
-    email:       email,
-    urlConfirmation: `${SITE_URL}/api/flow-webhook`,   // POST de Flow al confirmar
-    urlReturn:       `${SITE_URL}/reserva/confirmada`, // Redirige al usuario
+    subject:       descripcion,
+    currency:      "CLP",
+    amount:        String(Math.round(monto)),
+    email:         email,
+    urlConfirmation: FLOW_WEBHOOK_URL,                        // POST de Flow al confirmar
+    urlReturn:       `${SITE_URL}/${slug}/confirmacion`,      // Redirige al huésped
   };
 
   params.s = await firmarFlow(params);
@@ -89,11 +101,12 @@ async function verificarPagoFlow(token: string) {
 // ── Generar mensaje WhatsApp ──────────────────────────────────────────────────
 function generarMsgWA(reserva: Record<string, unknown>): string {
   return encodeURIComponent(
-    `✅ *PAGO CONFIRMADO - Araucanía Viajes*\n\n` +
+    `✅ *PAGO CONFIRMADO*\n\n` +
+    `🏠 ${reserva.hostal || ""}\n` +
     `👤 ${reserva.nombre} · ${reserva.telefono || reserva.email}\n` +
-    `🗺️ ${reserva.ruta || ""}\n` +
-    `📅 ${reserva.fecha || ""} · 🕐 ${reserva.hora || ""}\n` +
-    `💰 Abono pagado: $${Number(reserva.monto_abono || 0).toLocaleString("es-CL")}\n` +
+    `🛏️ ${reserva.habitacion || ""}\n` +
+    `📅 ${reserva.entrada || ""} → ${reserva.salida || ""}\n` +
+    `💰 Anticipo pagado: $${Number(reserva.monto_abono || 0).toLocaleString("es-CL")}\n` +
     `🆔 Reserva: ${reserva.id}\n\n` +
     `_Pago procesado vía Flow_`
   );
@@ -113,21 +126,54 @@ serve(async (req) => {
   // ── RUTA 1: Crear orden ───────────────────────────────────────────────────
   if (path.endsWith("/create") && req.method === "POST") {
     try {
-      const { reservaId, monto, email, descripcion } = await req.json();
+      const { reservaId, monto, email, descripcion, slug } = await req.json();
 
       if (!reservaId || !monto || !email) {
         return new Response(JSON.stringify({ error: "Faltan parámetros" }), { status: 400, headers });
       }
 
-      const { url: urlPago, token } = await crearOrdenFlow(reservaId, monto, email, descripcion || "Reserva Araucanía Viajes");
+      // El monto se recalcula desde la base: aceptarlo del cliente permitiría
+      // que cualquiera pagara $1 por una reserva de $100.000.
+      const { data: reserva, error: eReserva } = await supabase
+        .from("reservas_hostal")
+        .select("id, huesped_email, precio_por_noche, num_huespedes, fecha_entrada, fecha_salida, total")
+        .eq("id", reservaId)
+        .single();
+
+      if (eReserva || !reserva) {
+        return new Response(JSON.stringify({ error: "Reserva no encontrada" }), { status: 404, headers });
+      }
+
+      const noches = Math.max(
+        0,
+        Math.round((new Date(reserva.fecha_salida).getTime() - new Date(reserva.fecha_entrada).getTime()) / 86400000)
+      );
+      const totalReal = reserva.total != null
+        ? Number(reserva.total)
+        : (reserva.precio_por_noche || 0) * noches * (reserva.num_huespedes || 1);
+
+      // Anticipo del 30% — mismo criterio que ANTICIPO_PCT en el formulario
+      const montoCobrar = Math.round(totalReal * 0.3);
+
+      if (montoCobrar <= 0) {
+        return new Response(JSON.stringify({ error: "Monto inválido" }), { status: 400, headers });
+      }
+
+      const { url: urlPago, token } = await crearOrdenFlow(
+        reservaId,
+        montoCobrar,
+        reserva.huesped_email || email,
+        descripcion || "Reserva de alojamiento",
+        slug || ""
+      );
 
       // Guardar token en la reserva para verificar luego
       await supabase
-        .from("reservas")
-        .update({ flow_token: token, estado: "pago_pendiente" })
+        .from("reservas_hostal")
+        .update({ flow_token: token, estado: ESTADO_PENDIENTE })
         .eq("id", reservaId);
 
-      return new Response(JSON.stringify({ urlPago }), { status: 200, headers });
+      return new Response(JSON.stringify({ urlPago, monto: montoCobrar }), { status: 200, headers });
 
     } catch (e) {
       console.error("Error /create:", e);
@@ -154,22 +200,23 @@ serve(async (req) => {
       if (pago.status === 2) {
         // ✅ Pago exitoso → confirmar reserva
         const { data: reserva } = await supabase
-          .from("reservas")
-          .update({ estado: "confirmada", flow_pago_id: pago.flowOrder })
+          .from("reservas_hostal")
+          .update({ estado: ESTADO_PAGADO, flow_pago_id: pago.flowOrder })
           .eq("id", reservaId)
-          .select("*, viajes(fecha, hora_salida, rutas(nombre))")
+          .select("*, habitaciones(nombre), hostales(nombre)")
           .single();
 
         if (reserva) {
           // Construir datos para WA
           const datosWA = {
             id:          reserva.id,
-            nombre:      reserva.nombre,
-            telefono:    reserva.telefono,
-            email:       reserva.email,
-            ruta:        reserva.viajes?.rutas?.nombre || "",
-            fecha:       reserva.viajes?.fecha || "",
-            hora:        reserva.viajes?.hora_salida || "",
+            nombre:      reserva.huesped_nombre,
+            telefono:    reserva.huesped_telefono,
+            email:       reserva.huesped_email,
+            hostal:      reserva.hostales?.nombre || "",
+            habitacion:  reserva.habitaciones?.nombre || "",
+            entrada:     reserva.fecha_entrada || "",
+            salida:      reserva.fecha_salida || "",
             monto_abono: pago.amount,
           };
 
@@ -182,8 +229,8 @@ serve(async (req) => {
       } else if (pago.status === 3 || pago.status === 4) {
         // ❌ Rechazado o anulado
         await supabase
-          .from("reservas")
-          .update({ estado: "pago_fallido" })
+          .from("reservas_hostal")
+          .update({ estado: ESTADO_CANCELADO })
           .eq("id", reservaId);
 
         console.log("❌ Pago fallido/anulado:", reservaId, "status:", pago.status);
