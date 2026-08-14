@@ -1,24 +1,60 @@
 name: Supabase Keep-Alive
 
-# Consulta la DB cada 3 dias para que el plan Free no pause el proyecto
-# (Supabase pausa tras ~7 dias sin actividad)
+# Consulta la DB cada 2 dias para que el plan Free no pause el proyecto.
+# Supabase pausa tras ~7 dias de inactividad, pero en julio de 2026 el
+# proyecto se paso a pausa 3 dias despues de un ping exitoso: una lectura
+# REST no siempre cuenta como actividad. De ahi la cadencia mas corta.
 on:
   schedule:
-    - cron: '0 12 */3 * *'   # cada 3 dias a las 12:00 UTC (~08:00 Chile)
+    - cron: '0 12 */2 * *'   # cada 2 dias a las 12:00 UTC (~08:00 Chile)
   workflow_dispatch:          # permite ejecutarlo a mano desde la pestana Actions
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping a Supabase
+      - name: Verificar que los secrets existen
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            "${{ secrets.SUPABASE_URL }}/rest/v1/hostales?select=id&limit=1" \
-            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}")
-          echo "HTTP $STATUS"
-          if [ "$STATUS" != "200" ]; then
-            echo "::error::Supabase respondio $STATUS — revisar si el proyecto esta pausado"
+          faltan=""
+          [ -z "${{ secrets.SUPABASE_URL }}" ]      && faltan="$faltan SUPABASE_URL"
+          [ -z "${{ secrets.SUPABASE_ANON_KEY }}" ] && faltan="$faltan SUPABASE_ANON_KEY"
+          if [ -n "$faltan" ]; then
+            echo "::error::Faltan secrets en el repo:$faltan (Settings → Secrets and variables → Actions)"
             exit 1
           fi
+
+      - name: Ping a Supabase
+        run: |
+          # Sin `set -e` en la asignacion: si curl falla por red necesitamos
+          # llegar al diagnostico en vez de morir sin explicacion.
+          RESPUESTA=$(curl -sS --max-time 30 \
+            -o /tmp/cuerpo.txt -w "%{http_code}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/hostales?select=id&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" 2>/tmp/error.txt) || CURL_EXIT=$?
+          CURL_EXIT=${CURL_EXIT:-0}
+
+          if [ "$CURL_EXIT" -ne 0 ]; then
+            echo "curl fallo con codigo $CURL_EXIT"
+            echo "--- detalle ---"; cat /tmp/error.txt
+            case "$CURL_EXIT" in
+              6)  echo "::error::No se resuelve el host. Supabase le quita el DNS a los proyectos PAUSADOS: entra al dashboard y pulsa 'Resume project'." ;;
+              7)  echo "::error::Host resuelto pero conexion rechazada — proyecto caido o en mantenimiento." ;;
+              28) echo "::error::Timeout a los 30s — Supabase no responde." ;;
+              *)  echo "::error::Fallo de red con curl (codigo $CURL_EXIT). Revisa el valor del secret SUPABASE_URL." ;;
+            esac
+            exit 1
+          fi
+
+          echo "HTTP $RESPUESTA"
+          if [ "$RESPUESTA" != "200" ]; then
+            echo "--- cuerpo ---"; head -c 500 /tmp/cuerpo.txt
+            case "$RESPUESTA" in
+              401|403) echo "::error::HTTP $RESPUESTA — la SUPABASE_ANON_KEY es invalida, caducada o la rotaron." ;;
+              404)     echo "::error::HTTP 404 — la tabla 'hostales' no existe o no esta expuesta en la API." ;;
+              *)       echo "::error::HTTP $RESPUESTA — respuesta inesperada de Supabase." ;;
+            esac
+            exit 1
+          fi
+
+          echo "✅ Proyecto activo"
