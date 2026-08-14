@@ -46,7 +46,7 @@ export default function LoginAdmin() {
       if (h) setNombreHostal(`${h.nombre} — ${h.ciudad}`);
       setLoading(false);
     });
-  }, [slug]);
+  }, [slug, navigate]);
 
   const login = async (e) => {
     e.preventDefault();

@@ -1,4 +1,8 @@
 node_modules/
 dist/
 package-lock.json
+
+# Credenciales — nunca versionar (cubre .env, .env.local, .env.production...)
 .env
+.env.*
+!.env.example

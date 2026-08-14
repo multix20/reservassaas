@@ -7,6 +7,8 @@ import Confirmacion from './components/Confirmacion';
 import LoginAdmin from './components/LoginAdmin';
 import AdminDashboard from './components/AdminDashboard';
 import VitrinaHostelia from './components/VitrinaHostelia';
+import ConfigFaltante from './components/ConfigFaltante';
+import { configOk } from './lib/supabase';
 
 /*
  * Modo de presentación según ruta:
@@ -23,7 +25,7 @@ const ModoPresentacion = () => {
   return null;
 };
 
-const App = () => (
+const App = () => configOk ? (
   <BrowserRouter>
     <ModoPresentacion />
     <Routes>
@@ -39,6 +41,8 @@ const App = () => (
       <Route path="/:slug/admin"                   element={<AdminDashboard />} />
     </Routes>
   </BrowserRouter>
+) : (
+  <ConfigFaltante />
 );
 
 export default App;

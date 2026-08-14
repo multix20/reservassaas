@@ -100,9 +100,12 @@ export default function FormularioReserva() {
   const { state }     = useLocation();
   const navigate      = useNavigate();
 
-  if (!state?.hab) { navigate(`/${slug}`); return null; }
+  /* Sin datos de navegación (enlace directo, refresco o botón atrás) no hay
+     reserva que mostrar. La redirección va en un efecto más abajo: hacerla
+     durante el render cortaba la función antes de los hooks y rompía su orden. */
+  const datosOk = Boolean(state?.hab);
 
-  const { hab: habInicial, hostal, entrada: entradaInicial, salida: salidaInicial, huespedes: huespedesInicial = 1, habitaciones = [] } = state;
+  const { hab: habInicial, hostal, entrada: entradaInicial, salida: salidaInicial, huespedes: huespedesInicial = 1, habitaciones = [] } = state || {};
 
   const [hab, setHab]                 = useState(habInicial);
   const [entrada, setEntrada]         = useState(entradaInicial);
@@ -118,11 +121,6 @@ export default function FormularioReserva() {
     ['/Habitacion1.jpg', '/hdoble.jpg', '/iglu.jpg'],
     ['/iglu.jpg', '/hcompartida.jpg', '/hdoble.jpg'],
   ];
-
-  const nn       = noches(entrada, salida);
-  const total    = hab.precio_noche * nn * huespedes;
-  const anticipo = Math.round(total * ANTICIPO_PCT);
-  const resto    = total - anticipo;
 
   const [paso, setPaso]           = useState(1);
   const [enviando, setEnviando]   = useState(false);
@@ -156,6 +154,18 @@ export default function FormularioReserva() {
     });
     return () => { activo = false; };
   }, [hab?.id, entrada, salida]);
+
+  // Redirección por falta de datos — después de todos los hooks
+  useEffect(() => {
+    if (!datosOk) navigate(`/${slug}`, { replace: true });
+  }, [datosOk, navigate, slug]);
+
+  if (!datosOk) return null;
+
+  const nn       = noches(entrada, salida);
+  const total    = hab.precio_noche * nn * huespedes;
+  const anticipo = Math.round(total * ANTICIPO_PCT);
+  const resto    = total - anticipo;
 
   const validar = () => {
     if (!form.nombre.trim())       return 'El nombre es obligatorio';

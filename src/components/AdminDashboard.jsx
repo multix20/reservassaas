@@ -11,6 +11,15 @@ const ESTADO_COLOR = {
   completado: { bg: 'rgba(148,163,184,0.15)', text: '#64748b' },
 };
 const fmt = (n) => `$${Number(n || 0).toLocaleString('es-CL')}`;
+
+/* El formulario público guarda `precio_por_noche`, no `total`. Si la base no
+   calcula esa columna, `total` llega null y las métricas quedaban en $0:
+   en ese caso se deriva del precio por las noches y los huéspedes. */
+const montoReserva = (r) => {
+  if (r.total != null) return Number(r.total);
+  const noches = Math.max(0, Math.round((new Date(r.fecha_salida) - new Date(r.fecha_entrada)) / 86400000));
+  return (r.precio_por_noche || 0) * noches * (r.num_huespedes || 1);
+};
 const fmtFecha = (d) => new Date(d + 'T12:00').toLocaleDateString('es-CL', { day: '2-digit', month: 'short' });
 const hoy = () => new Date().toISOString().split('T')[0];
 
@@ -52,7 +61,7 @@ export default function AdminDashboard() {
       setLoading(false);
     };
     init();
-  }, [tenant_id]);
+  }, [tenant_id, navigate]);
 
   // ─── Gráfico Chart.js ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -99,8 +108,8 @@ export default function AdminDashboard() {
     setReservas(data);
 
     const today = hoy();
-    const ingresos     = data.filter(r => r.estado === 'pagado' || r.estado === 'completado').reduce((s, r) => s + (r.total || 0), 0);
-    const porConfirmar = data.filter(r => r.estado === 'pendiente').reduce((s, r) => s + (r.total || 0), 0);
+    const ingresos     = data.filter(r => r.estado === 'pagado' || r.estado === 'completado').reduce((s, r) => s + montoReserva(r), 0);
+    const porConfirmar = data.filter(r => r.estado === 'pendiente').reduce((s, r) => s + montoReserva(r), 0);
     const checkinsHoy  = data.filter(r => r.fecha_entrada === today).length;
     setMetricas({ ingresos, porConfirmar, checkinsHoy });
   };
@@ -252,7 +261,7 @@ export default function AdminDashboard() {
                       </div>
                       {r.huesped_email && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>{r.huesped_email}</div>}
                     </div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: '#e8ede9', flexShrink: 0, marginLeft: 10 }}>{fmt(r.total)}</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: '#e8ede9', flexShrink: 0, marginLeft: 10 }}>{fmt(montoReserva(r))}</div>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                     <span style={{ ...badge, background: ESTADO_COLOR[r.estado]?.bg, color: ESTADO_COLOR[r.estado]?.text }}>
@@ -274,7 +283,7 @@ export default function AdminDashboard() {
                       </button>
                     </div>
                   </div>
-                  {r.notas && <p style={{ fontSize: 11, color: '#6b7280', fontStyle: 'italic', margin: '8px 0 0' }}>"{r.notas}"</p>}
+                  {r.notas && <p style={{ fontSize: 11, color: '#6b7280', fontStyle: 'italic', margin: '8px 0 0' }}>&ldquo;{r.notas}&rdquo;</p>}
                 </div>
               ))}
             </div>
