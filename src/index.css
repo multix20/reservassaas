@@ -129,22 +129,6 @@ img {
   .l-btn-cta { width: auto; display: block; margin: 0 auto; padding-left: 52px !important; padding-right: 52px !important; }
 }
 
-/* ── Presentación tipo app móvil en escritorio ──
-   Solo para las rutas de hostal (/:slug/...): la app se ve como un
-   teléfono centrado sobre fondo oscuro. La landing (/) queda a
-   pantalla completa como web normal. La clase .modo-app la pone
-   App.jsx según la ruta. */
-@media (min-width: 768px) {
-  body.modo-app {
-    background: #10151c;
-    min-height: 100vh;
-  }
-  body.modo-app #root {
-    max-width: 480px;
-    margin: 0 auto;
-    min-height: 100vh;
-    position: relative;
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, .08), 0 24px 80px rgba(0, 0, 0, .55);
-  }
-}
+/* El marco de teléfono que antes encerraba las rutas de hostal en 480px
+   sobre fondo oscuro se retiró: la app es responsiva y usa toda la pantalla. */
 
