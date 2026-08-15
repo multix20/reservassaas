@@ -10,7 +10,8 @@
     "doctor": "node scripts/doctor.mjs",
     "bot": "node scripts/bot-sim.mjs",
     "bot:test": "node scripts/bot-test.mjs",
-    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0"
+    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
+    "vista-previa": "vite build --config vite.preview.config.js && node preview/empaquetar.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.98.0",
