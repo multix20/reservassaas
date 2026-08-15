@@ -102,7 +102,16 @@ npm run dev      # servidor de desarrollo
 npm run build    # build de producción a dist/
 npm run preview  # sirve el build local
 npm run lint     # eslint, sin warnings permitidos
+npm run doctor   # diagnostica la conexión con Supabase
 ```
+
+### Diagnóstico
+
+Antes de dar por buena una instalación, `npm run doctor` comprueba contra tu
+base que estén las credenciales, las cuatro tablas, las columnas que usan el
+panel y los pagos, la RPC de disponibilidad y los datos mínimos (un hostal
+activo con `tenant_id`, `admin_email` y habitaciones). Solo lee: no escribe
+nada ni imprime la clave, así que su salida se puede compartir sin riesgo.
 
 ---
 
